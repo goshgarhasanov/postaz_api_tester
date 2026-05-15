@@ -53,8 +53,10 @@ class MainWindow(QMainWindow):
 
         self.setWindowIcon(app_icon(64))
         self.setWindowTitle("Postaz")
-        self.resize(1320, 820)
-        self.setMinimumSize(960, 600)
+        self.resize(1360, 860)
+        # 1024×680 fits a 1366×768 laptop after taskbar — anything smaller
+        # starts clipping the URL bar / response meta.
+        self.setMinimumSize(1024, 680)
 
         # ── language (load saved before building UI) ────────────
         saved_lang = self.db.get_setting("language", "en") or "en"
@@ -65,21 +67,25 @@ class MainWindow(QMainWindow):
         self.editor = RequestEditor()
         self.response = ResponseViewer()
 
+        # Vertical split: request editor (top) over response viewer (bottom)
         center = QSplitter(Qt.Vertical)
         center.addWidget(self.editor)
         center.addWidget(self.response)
         center.setStretchFactor(0, 3)
         center.setStretchFactor(1, 2)
-        center.setSizes([460, 360])
-        center.setHandleWidth(1)
+        center.setSizes([500, 380])
+        center.setHandleWidth(3)
+        center.setChildrenCollapsible(False)
 
+        # Horizontal split: sidebar | (editor + response)
         main_split = QSplitter(Qt.Horizontal)
         main_split.addWidget(self.sidebar)
         main_split.addWidget(center)
         main_split.setStretchFactor(0, 0)
         main_split.setStretchFactor(1, 1)
-        main_split.setSizes([280, 1040])
-        main_split.setHandleWidth(1)
+        main_split.setSizes([300, 1060])
+        main_split.setHandleWidth(3)
+        main_split.setChildrenCollapsible(False)
         self.setCentralWidget(main_split)
 
         # ── menu + status ────────────────────────────────────────

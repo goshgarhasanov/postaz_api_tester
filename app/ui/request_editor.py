@@ -53,8 +53,8 @@ class RequestEditor(QWidget):
         top = QFrame()
         top.setObjectName("topBar")
         top_layout = QHBoxLayout(top)
-        top_layout.setContentsMargins(16, 12, 16, 12)
-        top_layout.setSpacing(10)
+        top_layout.setContentsMargins(20, 14, 20, 12)
+        top_layout.setSpacing(12)
 
         self.method = QComboBox()
         self.method.setObjectName("methodCombo")
@@ -88,7 +88,7 @@ class RequestEditor(QWidget):
         name_row = QFrame()
         name_row.setObjectName("topBar")
         nl = QHBoxLayout(name_row)
-        nl.setContentsMargins(16, 0, 16, 10)
+        nl.setContentsMargins(20, 4, 20, 12)
         self.name_edit = QLineEdit()
         self.name_edit.setPlaceholderText(t("Untitled request"))
         self.name_edit.setStyleSheet(
@@ -112,8 +112,8 @@ class RequestEditor(QWidget):
         # Body
         body_widget = QWidget()
         bl = QVBoxLayout(body_widget)
-        bl.setContentsMargins(16, 12, 16, 12)
-        bl.setSpacing(8)
+        bl.setContentsMargins(20, 16, 20, 20)
+        bl.setSpacing(10)
         body_top = QHBoxLayout()
         self.body_type_label = QLabel(t("Body type:"))
         self.body_type = QComboBox()
@@ -135,8 +135,8 @@ class RequestEditor(QWidget):
         # Auth
         auth_widget = QWidget()
         al = QVBoxLayout(auth_widget)
-        al.setContentsMargins(16, 12, 16, 12)
-        al.setSpacing(10)
+        al.setContentsMargins(20, 16, 20, 20)
+        al.setSpacing(12)
         auth_top = QHBoxLayout()
         self.auth_type_label = QLabel(t("Auth type:"))
         self.auth_type = QComboBox()
@@ -207,9 +207,10 @@ class RequestEditor(QWidget):
 
     # ── helpers ──────────────────────────────────────────────────────
     def _wrap_table(self, table: KeyValueTable) -> QWidget:
+        """Padded wrapper so the table doesn't kiss the tab edges."""
         w = QWidget()
         l = QVBoxLayout(w)
-        l.setContentsMargins(16, 12, 16, 12)
+        l.setContentsMargins(20, 16, 20, 20)
         l.addWidget(table)
         return w
 

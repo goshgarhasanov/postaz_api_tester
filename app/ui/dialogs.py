@@ -47,21 +47,25 @@ class SaveRequestDialog(QDialog):
         self.setMinimumWidth(440)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(22, 22, 22, 22)
-        layout.setSpacing(14)
+        layout.setContentsMargins(28, 26, 28, 24)
+        layout.setSpacing(16)
 
         title = QLabel(t("Save Request"))
-        title.setStyleSheet("font-size: 16px; font-weight: 600;")
+        title.setStyleSheet("font-size: 16px; font-weight: 600; margin-bottom: 4px;")
         layout.addWidget(title)
 
         form = QFormLayout()
-        form.setVerticalSpacing(10)
+        form.setVerticalSpacing(12)
+        form.setHorizontalSpacing(16)
+        form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
         self.name = QLineEdit(default_name)
+        self.name.setMinimumHeight(34)
         self.name.selectAll()
         form.addRow(t("Name"), self.name)
 
         self.collection = QComboBox()
+        self.collection.setMinimumHeight(34)
         self.collection.addItem(t("Quick Saves"), None)
         for c in db.list_collections():
             self.collection.addItem(c.name, c.id)
@@ -69,7 +73,9 @@ class SaveRequestDialog(QDialog):
         layout.addLayout(form)
 
         new_row = QHBoxLayout()
+        new_row.setSpacing(10)
         self.new_col_name = QLineEdit()
+        self.new_col_name.setMinimumHeight(34)
         self.new_col_name.setPlaceholderText(t("Or create new collection…"))
         new_btn = GhostButton(t("Create"))
         new_btn.clicked.connect(self._create_collection)
@@ -77,7 +83,9 @@ class SaveRequestDialog(QDialog):
         new_row.addWidget(new_btn)
         layout.addLayout(new_row)
 
+        layout.addStretch()
         btn_row = QHBoxLayout()
+        btn_row.setSpacing(10)
         btn_row.addStretch()
         cancel = GhostButton(t("Cancel"))
         cancel.clicked.connect(self.reject)

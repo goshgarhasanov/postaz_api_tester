@@ -259,16 +259,18 @@ class KeyValueTable(QTableWidget):
         self.verticalHeader().setVisible(False)
         self.setObjectName("kvTable")
         self.setShowGrid(False)
+        self.setAlternatingRowColors(False)
         self.setSelectionMode(QTableWidget.SingleSelection)
         self.setSelectionBehavior(QTableWidget.SelectRows)
         self.setEditTriggers(QTableWidget.AllEditTriggers)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         hh = self.horizontalHeader()
         hh.setSectionResizeMode(0, QHeaderView.Fixed)
         hh.setSectionResizeMode(1, QHeaderView.Stretch)
         hh.setSectionResizeMode(2, QHeaderView.Stretch)
         hh.setSectionResizeMode(3, QHeaderView.Stretch)
-        self.setColumnWidth(0, 32)
-        self.verticalHeader().setDefaultSectionSize(34)
+        self.setColumnWidth(0, 44)              # roomier — checkbox + breathing space
+        self.verticalHeader().setDefaultSectionSize(40)  # taller row for easier hits
         self.itemChanged.connect(self._on_item_changed)
         self._loading = False
         self._ensure_blank_row()
@@ -289,15 +291,22 @@ class KeyValueTable(QTableWidget):
             self._add_row({"enabled": True, "key": "", "value": "", "description": ""})
 
     def _add_row(self, data: dict) -> None:
+        """Append one row. The checkbox lives in a centred wrapper so it
+        looks intentional rather than glued to the left edge."""
         self._loading = True
         r = self.rowCount()
         self.insertRow(r)
         cb = QCheckBox()
         cb.setChecked(bool(data.get("enabled", True)))
+        cb.setToolTip("Enable / disable this entry")
+        cb.setCursor(Qt.PointingHandCursor)
         cb.stateChanged.connect(self.changed.emit)
+        # Centre the checkbox horizontally and vertically inside its 44px cell.
         wrapper = QWidget()
+        wrapper.setStyleSheet("background: transparent;")
         lay = QHBoxLayout(wrapper)
-        lay.setContentsMargins(8, 0, 0, 0)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setAlignment(Qt.AlignCenter)
         lay.addWidget(cb)
         self.setCellWidget(r, 0, wrapper)
         for col, key in [(1, "key"), (2, "value"), (3, "description")]:

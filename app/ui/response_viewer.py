@@ -65,10 +65,11 @@ class ResponseViewer(QWidget):
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(16, 8, 16, 16)
-        outer.setSpacing(10)
+        outer.setContentsMargins(20, 14, 20, 16)
+        outer.setSpacing(12)
 
         meta = QFrame()
+        meta.setMinimumHeight(28)
         ml = QHBoxLayout(meta)
         ml.setContentsMargins(0, 0, 0, 0)
         ml.setSpacing(10)
@@ -97,26 +98,37 @@ class ResponseViewer(QWidget):
         self.tabs = QTabWidget()
         outer.addWidget(self.tabs, 1)
 
+        # Each tab content gets its own padded wrapper so the inner widget
+        # never touches the tab strip or the panel edge.
+        def _padded(child: QWidget) -> QWidget:
+            wrap = QWidget()
+            ly = QVBoxLayout(wrap)
+            ly.setContentsMargins(2, 12, 2, 8)
+            ly.addWidget(child)
+            return wrap
+
         self.body_view = QPlainTextEdit()
         self.body_view.setReadOnly(True)
         self.body_view.setFont(QFont("Consolas", 11))
         self.body_view.setLineWrapMode(QPlainTextEdit.NoWrap)
         self.body_view.setPlaceholderText(t("Response body will appear here."))
         self.body_highlighter = JsonHighlighter(self.body_view.document())
-        self.tabs.addTab(self.body_view, t("Body"))
+        self.tabs.addTab(_padded(self.body_view), t("Body"))
 
         self.headers_table = QTableWidget(0, 2)
         self.headers_table.setHorizontalHeaderLabels([t("Header"), t("Value")])
         self.headers_table.verticalHeader().setVisible(False)
+        self.headers_table.verticalHeader().setDefaultSectionSize(34)
         self.headers_table.setShowGrid(False)
+        self.headers_table.setAlternatingRowColors(False)
         self.headers_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.headers_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.tabs.addTab(self.headers_table, t("Headers"))
+        self.tabs.addTab(_padded(self.headers_table), t("Headers"))
 
         self.raw_view = QPlainTextEdit()
         self.raw_view.setReadOnly(True)
         self.raw_view.setFont(QFont("Consolas", 11))
-        self.tabs.addTab(self.raw_view, t("Raw"))
+        self.tabs.addTab(_padded(self.raw_view), t("Raw"))
 
         self.loader = LoaderOverlay(self)
         translator.language_changed.connect(self._retranslate)

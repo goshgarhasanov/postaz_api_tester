@@ -56,7 +56,8 @@ class Sidebar(QWidget):
         super().__init__(parent)
         self.db = db
         self.setObjectName("sidebar")
-        self.setMinimumWidth(260)
+        self.setMinimumWidth(270)
+        self.setMaximumWidth(420)
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -100,7 +101,7 @@ class Sidebar(QWidget):
         tab_bar = QWidget()
         tab_bar.setObjectName("sidebarTabBar")
         tb_layout = QHBoxLayout(tab_bar)
-        tb_layout.setContentsMargins(12, 4, 12, 8)
+        tb_layout.setContentsMargins(12, 8, 12, 8)
         tb_layout.setSpacing(6)
 
         self.btn_collections = QPushButton(t("Collections"))
@@ -126,10 +127,11 @@ class Sidebar(QWidget):
         # ─ Search ────────────────────────────────────────────────────────
         search_wrap = QFrame()
         sl = QHBoxLayout(search_wrap)
-        sl.setContentsMargins(12, 0, 12, 8)
+        sl.setContentsMargins(12, 0, 12, 10)
         self.search = QLineEdit()
         self.search.setPlaceholderText(t("Search…"))
         self.search.setClearButtonEnabled(True)
+        self.search.setMinimumHeight(34)
         sl.addWidget(self.search)
         outer.addWidget(search_wrap)
 
