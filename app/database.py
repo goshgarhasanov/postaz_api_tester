@@ -17,6 +17,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
+from .logger import get_logger
+
+log = get_logger(__name__)
+
 DB_VERSION = 1
 
 SCHEMA = """
@@ -221,6 +225,7 @@ class Database:
 
         Mutates `rec.id` on insert so the caller can keep the same dataclass
         instance after saving and trigger further updates without re-fetching."""
+        log.info("save request: name=%r method=%s url=%s id=%s", rec.name, rec.method, rec.url, rec.id)
         payload = (
             rec.collection_id,
             rec.name,
@@ -251,6 +256,7 @@ class Database:
             return rec.id
 
     def delete_request(self, request_id: int) -> None:
+        log.info("delete request id=%d", request_id)
         with self._conn() as c:
             c.execute("DELETE FROM requests WHERE id = ?", (request_id,))
 

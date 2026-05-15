@@ -10,11 +10,15 @@ import shlex
 from urllib.parse import parse_qsl, urlparse, urlunparse
 
 from .database import RequestRecord
+from .logger import get_logger
+
+log = get_logger(__name__)
 
 
 def parse_curl(command: str) -> RequestRecord:
     """Best-effort cURL → RequestRecord. Unknown flags are ignored."""
     cmd = command.strip()
+    log.debug("cURL import: %d chars in", len(cmd))
     if not cmd:
         raise ValueError("Empty input")
 
@@ -123,7 +127,7 @@ def parse_curl(command: str) -> RequestRecord:
         else:
             body_type = "raw"
 
-    return RequestRecord(
+    rec = RequestRecord(
         name="Imported request",
         method=(method or "GET").upper(),
         url=url,
@@ -134,3 +138,6 @@ def parse_curl(command: str) -> RequestRecord:
         auth_type=auth_type,
         auth_data=auth_data,
     )
+    log.info("cURL parsed: %s %s (%d headers, %d params, body_type=%s, auth=%s)",
+             rec.method, rec.url, len(rec.headers), len(rec.params), rec.body_type, rec.auth_type)
+    return rec

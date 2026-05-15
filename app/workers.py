@@ -9,6 +9,9 @@ from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal, Slot
 
 from .database import RequestRecord
 from .http_client import ResponseData, execute
+from .logger import get_logger
+
+log = get_logger(__name__)
 
 
 class _Signals(QObject):
@@ -27,10 +30,13 @@ class RequestWorker(QRunnable):
 
     @Slot()
     def run(self) -> None:  # noqa: D401
+        log.debug("worker start: %s %s", self.rec.method, self.rec.url)
         try:
             result = execute(self.rec, self.variables)
         except Exception as e:  # safety net
+            log.exception("worker crashed")
             result = ResponseData(ok=False, error=f"Worker crash: {e}")
+        log.debug("worker done: ok=%s status=%s", result.ok, result.status_code)
         self.signals.finished.emit(result)
 
 

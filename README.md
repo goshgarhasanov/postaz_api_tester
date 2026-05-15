@@ -1,7 +1,5 @@
 <div align="center">
 
-<img src="docs/logo.png" width="120" alt="Postaz logo" onerror="this.style.display='none'"/>
-
 # Postaz
 
 ### A modern, beautiful, fully-offline Postman alternative — built with Python &amp; Qt
@@ -25,6 +23,10 @@
 **Locally, offline, privately.**
 
 [🇬🇧 English](#-english)  ·  [🇦🇿 Azərbaycanca](#-azərbaycanca)  ·  [🇹🇷 Türkçe](#-türkçe)
+
+<br>
+
+![Postaz screenshot](docs/screenshot-main.png)
 
 </div>
 

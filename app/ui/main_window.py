@@ -23,8 +23,12 @@ from PySide6.QtWidgets import (
 from ..database import Database, RequestRecord
 from ..http_client import ResponseData
 from ..i18n import t, translator
+from ..logger import get_logger
 from ..workers import submit
 from .dialogs import AboutDialog, EnvironmentDialog, SaveRequestDialog
+from .log_viewer import LogViewer
+
+log = get_logger(__name__)
 from .icons import (
     app_icon,
     icon_export,
@@ -178,10 +182,26 @@ class MainWindow(QMainWindow):
         # Help
         m_help = mb.addMenu(t("&Help"))
         self._menus["help"] = m_help
+
+        a_logs = QAction(icon_export(), self._tr_logs(), self)
+        a_logs.setShortcut("Ctrl+L")
+        a_logs.triggered.connect(self.open_logs)
+        m_help.addAction(a_logs)
+        self._actions["logs"] = a_logs
+
+        m_help.addSeparator()
+
         a_about = QAction(icon_info(), t("About"), self)
         a_about.triggered.connect(self._about)
         m_help.addAction(a_about)
         self._actions["about"] = a_about
+
+    def _tr_logs(self) -> str:
+        return {"en": "View Logs", "az": "Logları gör", "tr": "Logları Görüntüle"}[translator.language]
+
+    def open_logs(self) -> None:
+        log.info("user opened log viewer")
+        LogViewer(self).exec()
 
     def _tr_import(self) -> str:
         return {"en": "Import cURL…", "az": "cURL idxal et…", "tr": "cURL İçe Aktar…"}[translator.language]
@@ -201,6 +221,7 @@ class MainWindow(QMainWindow):
         self._actions["send"].setText(t("Send"))
         self._actions["manage_env"].setText(t("Manage…"))
         self._actions["clear_hist"].setText(t("Clear History"))
+        self._actions["logs"].setText(self._tr_logs())
         self._actions["about"].setText(t("About"))
         # status + env label
         self._update_env_label()
@@ -282,13 +303,16 @@ class MainWindow(QMainWindow):
         Pulls variables from the active environment and hands everything
         to the `workers.submit()` helper."""
         if self._sending:
+            log.debug("send ignored — already in flight")
             return
         rec = self.editor.to_record(self.current_request)
         if not rec.url.strip():
+            log.warning("send blocked — empty URL")
             show_toast(self, t("URL is required"), "warn")
             return
         env = self.db.get_active_environment()
         variables = (env or {}).get("variables", {}) if env else {}
+        log.info("user → send %s %s (env=%s)", rec.method, rec.url, env["name"] if env else "—")
 
         self._sending = True
         self.editor.set_sending(True)
@@ -357,9 +381,12 @@ class MainWindow(QMainWindow):
     # ── import ───────────────────────────────────────────────────────
     def open_import(self) -> None:
         """Open the cURL import dialog and load the parsed result into the editor."""
+        log.debug("user opened cURL import dialog")
         dlg = ImportDialog(self)
         if dlg.exec() != dlg.Accepted or dlg.record is None:
+            log.debug("cURL import cancelled / no record")
             return
+        log.info("cURL imported into editor: %s %s", dlg.record.method, dlg.record.url)
         self.current_request = dlg.record
         self.editor.load(self.current_request)
         self.response.clear()

@@ -18,6 +18,7 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication
 
 from app.database import Database
+from app.logger import get_logger, setup_logging
 from app.ui.icons import app_icon
 from app.ui.main_window import MainWindow
 
@@ -62,13 +63,33 @@ def main() -> int:
     # Set a clean default font; widgets that need monospace pick their own.
     app.setFont(QFont("Segoe UI", 10))
 
+    # Configure logging first so the rest of bootstrap is captured.
+    data = _data_dir()
+    log_file = setup_logging(data)
+    log = get_logger(__name__)
+    log.info("data dir: %s", data)
+    log.info("log file: %s", log_file)
+    log.info("python: %s | qt: %s", sys.version.split()[0], _qt_version())
+
     # Open or create the local DB; schema migrations run on first use.
-    db_path = _data_dir() / "postaz.db"
+    db_path = data / "postaz.db"
+    log.info("opening database: %s", db_path)
     db = Database(db_path)
 
     window = MainWindow(db)
     window.show()
-    return app.exec()
+    log.info("main window shown — entering event loop")
+    code = app.exec()
+    log.info("event loop exited with code %d", code)
+    return code
+
+
+def _qt_version() -> str:
+    try:
+        from PySide6 import __version__ as v
+        return v
+    except Exception:
+        return "?"
 
 
 if __name__ == "__main__":

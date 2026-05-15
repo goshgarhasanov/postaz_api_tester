@@ -19,6 +19,9 @@ from requests.exceptions import RequestException
 
 from .database import RequestRecord
 from .env_resolver import resolve, resolve_all
+from .logger import get_logger
+
+log = get_logger(__name__)
 
 
 @dataclass
@@ -124,19 +127,29 @@ def execute(rec: RequestRecord, variables: dict[str, str]) -> ResponseData:
     try:
         url, kwargs = _build_kwargs(rec, variables)
     except ValueError as e:
+        log.warning("rejected request: %s", e)
         return ResponseData(ok=False, error=str(e))
 
+    log.info("→ %s %s", rec.method.upper(), url)
+    log.debug("headers=%s params=%s body_type=%s auth=%s",
+              {k: v for k, v in kwargs.get("headers", {}).items()},
+              kwargs.get("params"), rec.body_type, rec.auth_type)
     start = time.perf_counter()
     try:
         resp = requests.request(rec.method.upper(), url, **kwargs)
     except RequestException as e:
         elapsed = int((time.perf_counter() - start) * 1000)
+        log.error("✗ network error after %d ms: %s", elapsed, e)
         return ResponseData(ok=False, error=f"{type(e).__name__}: {e}", duration_ms=elapsed)
     except Exception as e:
         elapsed = int((time.perf_counter() - start) * 1000)
+        log.exception("✗ unexpected error after %d ms", elapsed)
         return ResponseData(ok=False, error=f"Unexpected: {e}", duration_ms=elapsed)
 
     elapsed = int((time.perf_counter() - start) * 1000)
+    log.info("← %s %s  →  %d %s  (%d ms, %d bytes)",
+             rec.method.upper(), url, resp.status_code, resp.reason or "",
+             elapsed, len(resp.content or b""))
     body_bytes = resp.content or b""
     try:
         body_text = body_bytes.decode(resp.encoding or "utf-8", errors="replace")

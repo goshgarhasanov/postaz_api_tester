@@ -8,8 +8,17 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction, QActionGroup, QFont, QIcon
+from PySide6.QtCore import QRectF, Qt, Signal
+from PySide6.QtGui import (
+    QAction,
+    QActionGroup,
+    QBrush,
+    QColor,
+    QFont,
+    QIcon,
+    QPainter,
+    QPen,
+)
 from PySide6.QtWidgets import (
     QButtonGroup,
     QFrame,
@@ -23,6 +32,9 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QStackedWidget,
+    QStyle,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
     QToolButton,
     QTreeWidget,
     QTreeWidgetItem,
@@ -39,6 +51,85 @@ from .widgets import IconButton
 
 def _method_label(method: str) -> str:
     return method.upper()[:6]
+
+
+# Method → soft brand color used by the sidebar delegate badge.
+_METHOD_COLORS = {
+    "GET":     ("#1f3a2c", "#5ed29b"),
+    "POST":    ("#3d2f1c", "#f4b860"),
+    "PUT":     ("#1f3245", "#6fb8ff"),
+    "PATCH":   ("#2f2348", "#bda6ff"),
+    "DELETE":  ("#3a1f24", "#ff8090"),
+    "HEAD":    ("#262842", "#a89bff"),
+    "OPTIONS": ("#262842", "#a89bff"),
+}
+
+
+class _RequestItemDelegate(QStyledItemDelegate):
+    """Custom painter for sidebar request rows.
+
+    Renders a small coloured method tag + the request name. Folder rows
+    (collections) fall back to the default delegate so their bold text +
+    icon stay intact."""
+
+    def paint(self, painter: QPainter, option: QStyleOptionViewItem, index) -> None:
+        payload = index.data(Qt.UserRole)
+        if not (payload and isinstance(payload, tuple) and payload[0] == "request"):
+            super().paint(painter, option, index)
+            return
+
+        method, name = index.data(Qt.UserRole + 1) or ("GET", index.data(Qt.DisplayRole) or "")
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+        rect = opt.rect
+
+        painter.save()
+        painter.setRenderHint(QPainter.Antialiasing, True)
+
+        # background (hover/selected handled by stylesheet, but we re-paint
+        # the rounded fill explicitly so the underlying tree highlight aligns
+        # perfectly with our padded content).
+        if opt.state & QStyle.State_Selected:
+            painter.setBrush(QColor("#25254a"))
+            painter.setPen(Qt.NoPen)
+            painter.drawRoundedRect(rect.adjusted(2, 1, -2, -1), 6, 6)
+        elif opt.state & QStyle.State_MouseOver:
+            painter.setBrush(QColor("#1a1c2e"))
+            painter.setPen(Qt.NoPen)
+            painter.drawRoundedRect(rect.adjusted(2, 1, -2, -1), 6, 6)
+
+        # method badge
+        bg, fg = _METHOD_COLORS.get(method.upper(), ("#262842", "#bda6ff"))
+        badge_w = 52
+        badge_h = 18
+        bx = rect.x() + 10
+        by = rect.y() + (rect.height() - badge_h) / 2
+        painter.setBrush(QColor(bg))
+        painter.setPen(Qt.NoPen)
+        painter.drawRoundedRect(QRectF(bx, by, badge_w, badge_h), 4, 4)
+        font = QFont(option.font)
+        font.setPointSizeF(8.5)
+        font.setBold(True)
+        font.setLetterSpacing(QFont.AbsoluteSpacing, 0.5)
+        painter.setFont(font)
+        painter.setPen(QColor(fg))
+        painter.drawText(QRectF(bx, by, badge_w, badge_h), Qt.AlignCenter, method.upper())
+
+        # request name
+        text_x = bx + badge_w + 10
+        text_rect = QRectF(text_x, rect.y(), rect.width() - text_x - 8, rect.height())
+        painter.setPen(QColor("#e6e8f5") if opt.state & (QStyle.State_Selected | QStyle.State_MouseOver) else QColor("#b6bad0"))
+        font = QFont(option.font)
+        font.setPointSizeF(9.5)
+        painter.setFont(font)
+        painter.drawText(text_rect, Qt.AlignVCenter | Qt.AlignLeft, name)
+
+        painter.restore()
+
+    def sizeHint(self, option, index):
+        size = super().sizeHint(option, index)
+        size.setHeight(max(size.height(), 32))
+        return size
 
 
 class Sidebar(QWidget):
@@ -142,7 +233,10 @@ class Sidebar(QWidget):
         self.tree = QTreeWidget()
         self.tree.setObjectName("collectionsTree")
         self.tree.setHeaderHidden(True)
-        self.tree.setIndentation(14)
+        self.tree.setIndentation(16)
+        self.tree.setMouseTracking(True)
+        self.tree.setUniformRowHeights(True)
+        self.tree.setItemDelegate(_RequestItemDelegate(self.tree))
         self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._on_tree_context)
         self.tree.itemDoubleClicked.connect(self._on_tree_double_click)
@@ -186,7 +280,12 @@ class Sidebar(QWidget):
         self._reload_history()
 
     def _switch(self, idx: int) -> None:
+        """Smooth fade between Collections and History panels."""
+        from .animations import fade_in
         self.stack.setCurrentIndex(idx)
+        widget = self.stack.currentWidget()
+        if widget:
+            fade_in(widget, 180)
         if idx == 1:
             self._reload_history()
 
@@ -233,8 +332,12 @@ class Sidebar(QWidget):
         self.tree.expandAll()
 
     def _add_request_item(self, parent: QTreeWidgetItem, r: RequestRecord) -> None:
-        item = QTreeWidgetItem([f"{_method_label(r.method):<5}  {r.name}"])
+        # Three pieces of data on the row:
+        #   UserRole     — ("request", request_id) marker (used by handlers)
+        #   UserRole + 1 — (method, name) — what the delegate paints
+        item = QTreeWidgetItem([r.name])
         item.setData(0, Qt.UserRole, ("request", r.id))
+        item.setData(0, Qt.UserRole + 1, (r.method, r.name))
         item.setToolTip(0, f"{r.method}  {r.url}")
         parent.addChild(item)
 
@@ -324,9 +427,12 @@ class Sidebar(QWidget):
     def _reload_history(self) -> None:
         self.history_list.clear()
         for h in self.db.list_history(100):
-            label = f"{_method_label(h['method']):<5}  {h['url']}"
-            item = QListWidgetItem(label)
-            item.setData(Qt.UserRole, h["id"])
+            item = QListWidgetItem(h["url"])
+            # Stored both as the synthetic delegate marker (with history_id
+            # so we can route on double-click) AND with method/name for the
+            # badge painter.
+            item.setData(Qt.UserRole, ("request", int(h["id"])))
+            item.setData(Qt.UserRole + 1, (h["method"], h["url"]))
             item.setToolTip(
                 t(
                     "Status: {code}\nTime: {ms} ms\nAt: {ts}",
@@ -336,11 +442,14 @@ class Sidebar(QWidget):
                 )
             )
             self.history_list.addItem(item)
+        # Reuse the same delegate so history rows look identical to saved ones.
+        if not isinstance(self.history_list.itemDelegate(), _RequestItemDelegate):
+            self.history_list.setItemDelegate(_RequestItemDelegate(self.history_list))
 
     def _on_history_double_click(self, item: QListWidgetItem) -> None:
-        hid = item.data(Qt.UserRole)
-        if hid is not None:
-            self.history_selected.emit(int(hid))
+        payload = item.data(Qt.UserRole)
+        if isinstance(payload, tuple) and len(payload) == 2:
+            self.history_selected.emit(int(payload[1]))
 
     # ── filter ────────────────────────────────────────────────────────────
     def _apply_filter(self, text: str) -> None:

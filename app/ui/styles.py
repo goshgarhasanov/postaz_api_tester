@@ -90,25 +90,32 @@ QListWidget#historyList {
     background: transparent;
     border: none;
     outline: 0;
-    padding: 8px 10px;
+    padding: 6px 8px;
     font-size: 12.5px;
+    show-decoration-selected: 1;
 }
 QTreeWidget#collectionsTree::item,
 QListWidget#historyList::item {
-    height: 34px;
-    border-radius: 8px;
-    padding: 0 10px;
+    min-height: 30px;
+    padding: 6px 10px;
     color: #b6bad0;
-    margin: 2px 0;
+    border-radius: 6px;
+    border: 0;
+    margin: 1px 0;
 }
 QTreeWidget#collectionsTree::item:hover,
-QListWidget#historyList::item:hover { background: rgba(255, 255, 255, 0.04); color: #e6e8f5; }
+QListWidget#historyList::item:hover {
+    background: #1a1c2e;
+    color: #ffffff;
+}
 QTreeWidget#collectionsTree::item:selected,
 QListWidget#historyList::item:selected {
-    background: rgba(124, 92, 255, 0.16);
+    background: #25254a;
     color: #ffffff;
 }
 QTreeWidget#collectionsTree::branch { background: transparent; }
+QTreeWidget#collectionsTree::branch:hover { background: transparent; }
+QTreeWidget#collectionsTree::branch:selected { background: transparent; }
 
 /* ─── topbar (URL row) ────────────────────────────────────────── */
 #topBar {

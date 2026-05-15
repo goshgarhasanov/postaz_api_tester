@@ -132,6 +132,10 @@ class ResponseViewer(QWidget):
 
         self.loader = LoaderOverlay(self)
         translator.language_changed.connect(self._retranslate)
+        # fade response tabs as the user toggles between Body / Headers / Raw
+        self.tabs.currentChanged.connect(
+            lambda _i: fade_in(self.tabs.currentWidget(), 160)
+        )
         self.clear()
 
     def resizeEvent(self, ev):

@@ -203,6 +203,11 @@ class RequestEditor(QWidget):
         self.headers_table.changed.connect(self._emit_changed)
 
         translator.language_changed.connect(self._retranslate)
+        # smooth fade as the user moves between Params / Headers / Body / Auth
+        from .animations import fade_in
+        self.tabs.currentChanged.connect(
+            lambda _i: fade_in(self.tabs.currentWidget(), 160)
+        )
         self.load(RequestRecord())
 
     # ── helpers ──────────────────────────────────────────────────────

@@ -19,15 +19,18 @@ from PySide6.QtWidgets import (
 from ..curl_import import parse_curl
 from ..database import RequestRecord
 from ..i18n import t
+from ..logger import get_logger
 from .widgets import GhostButton
+
+log = get_logger(__name__)
 
 
 class _PasteEdit(QPlainTextEdit):
-    """QPlainTextEdit that emits a `pasted` signal *after* any paste lands.
+    """QPlainTextEdit that emits `pasted` after any paste lands.
 
-    We override `insertFromMimeData` (called by Qt for both Ctrl+V and
-    middle-click paste on X11) and schedule the signal on the next tick so
-    the document has finished updating before listeners read it back."""
+    `insertFromMimeData` is the canonical paste hook in Qt — it fires for
+    both Ctrl+V and middle-click paste (X11). We re-emit on the next tick
+    so the document is fully updated before listeners read it back."""
 
     pasted = Signal()
 
@@ -89,6 +92,13 @@ class ImportDialog(QDialog):
             "  -d '{\"name\":\"Ada\"}'"
         )
         self.editor.pasted.connect(self._on_paste)
+        # Belt-and-braces: if the paste signal doesn't fire (rare quirk on
+        # some Qt versions), a debounced textChanged still triggers parse.
+        self._debounce = QTimer(self)
+        self._debounce.setSingleShot(True)
+        self._debounce.setInterval(250)
+        self._debounce.timeout.connect(self._try_import)
+        self.editor.textChanged.connect(self._on_text_changed)
         outer.addWidget(self.editor, 1)
 
         # red error line shown only when a paste fails to parse
@@ -111,22 +121,44 @@ class ImportDialog(QDialog):
         btns.addWidget(cancel)
         outer.addLayout(btns)
 
+    # ── auto-import paths ────────────────────────────────────────────
     def _on_paste(self) -> None:
-        """Triggered after Ctrl+V completes — try to import without prompting."""
+        """Fires after Ctrl+V / middle-click paste completes."""
+        log.debug("paste signal received")
+        self._try_import()
+
+    def _on_text_changed(self) -> None:
+        """Backup path — debounce, then try to parse.
+
+        Cleans the error banner as soon as the user keeps typing so they
+        get instant feedback instead of stale red text."""
+        self.error_label.setVisible(False)
+        self._debounce.start()
+
+    def _try_import(self) -> None:
+        """Attempt to import. Called by both paste and debounced edits.
+
+        Strategy:
+          1. Empty input → quietly do nothing.
+          2. First token isn't `curl` → friendly red banner.
+          3. parse_curl raises → show the parser's own message.
+          4. Success → close the dialog with `record` set."""
         text = self.editor.toPlainText().strip()
         if not text:
+            self.error_label.setVisible(False)
             return
-        # Reject pastes that obviously aren't cURL (helps avoid false positives
-        # when the user paste-replaces a snippet by accident).
-        if "curl" not in text.lower().split(None, 1)[0:1] and not text.lstrip().lower().startswith("curl"):
+        first_token = text.split(None, 1)[0].lower() if text.split() else ""
+        if first_token != "curl" and not first_token.endswith("curl"):
+            log.debug("import rejected — not a curl command (first token: %r)", first_token)
             self._show_error(_INVALID_CURL.get(self._lang, _INVALID_CURL["en"]))
             return
         try:
             self.record = parse_curl(text)
         except Exception as e:
+            log.warning("cURL parse failed: %s", e)
             self._show_error(str(e))
             return
-        # Valid — close the dialog with success.
+        log.info("cURL auto-imported: %s %s", self.record.method, self.record.url)
         self.accept()
 
     def _show_error(self, message: str) -> None:
