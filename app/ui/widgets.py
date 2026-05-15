@@ -150,17 +150,21 @@ class StatusBadge(QLabel):
 
 # ── Animated primary button ───────────────────────────────────────────────
 class PrimaryButton(QPushButton):
-    """Button with smooth hover shadow."""
+    """Brand call-to-action button.
+
+    Gradient fill (purple → deep purple), bold uppercase-ish weight, and a
+    soft brand-coloured drop shadow so it feels like it's lifting off the
+    surface. Disabled state in QSS turns the shadow visually-flat."""
 
     def __init__(self, text: str = "", parent: QWidget | None = None):
         super().__init__(text, parent)
         self.setCursor(Qt.PointingHandCursor)
         self.setObjectName("primaryButton")
-        self.setMinimumHeight(36)
+        self.setMinimumHeight(44)
         shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(18)
-        shadow.setOffset(0, 4)
-        shadow.setColor(QColor(124, 92, 255, 90))
+        shadow.setBlurRadius(28)
+        shadow.setOffset(0, 8)
+        shadow.setColor(QColor(124, 92, 255, 130))
         self.setGraphicsEffect(shadow)
 
 
@@ -235,12 +239,12 @@ def show_toast(parent: QWidget, text: str, kind: str = "info") -> None:
 
 # ── Key-value list (headers / params) ─────────────────────────────────────
 from PySide6.QtWidgets import (
-    QCheckBox,
     QHeaderView,
     QLineEdit,
     QTableWidget,
     QTableWidgetItem,
 )
+from .toggle import ToggleSwitch
 
 
 class KeyValueTable(QTableWidget):
@@ -269,8 +273,8 @@ class KeyValueTable(QTableWidget):
         hh.setSectionResizeMode(1, QHeaderView.Stretch)
         hh.setSectionResizeMode(2, QHeaderView.Stretch)
         hh.setSectionResizeMode(3, QHeaderView.Stretch)
-        self.setColumnWidth(0, 44)              # roomier — checkbox + breathing space
-        self.verticalHeader().setDefaultSectionSize(40)  # taller row for easier hits
+        self.setColumnWidth(0, 64)              # 38px switch + breathing room
+        self.verticalHeader().setDefaultSectionSize(42)  # rows that breathe
         self.itemChanged.connect(self._on_item_changed)
         self._loading = False
         self._ensure_blank_row()
@@ -291,23 +295,23 @@ class KeyValueTable(QTableWidget):
             self._add_row({"enabled": True, "key": "", "value": "", "description": ""})
 
     def _add_row(self, data: dict) -> None:
-        """Append one row. The checkbox lives in a centred wrapper so it
-        looks intentional rather than glued to the left edge."""
+        """Append one row.
+
+        The first cell hosts an animated `ToggleSwitch` (modern replacement
+        for QCheckBox). The switch is centred in its column with a tiny
+        transparent wrapper so the click target feels generous."""
         self._loading = True
         r = self.rowCount()
         self.insertRow(r)
-        cb = QCheckBox()
-        cb.setChecked(bool(data.get("enabled", True)))
-        cb.setToolTip("Enable / disable this entry")
-        cb.setCursor(Qt.PointingHandCursor)
-        cb.stateChanged.connect(self.changed.emit)
-        # Centre the checkbox horizontally and vertically inside its 44px cell.
+        sw = ToggleSwitch(checked=bool(data.get("enabled", True)))
+        sw.setToolTip("Enable / disable this entry")
+        sw.toggled_now.connect(lambda _v: self.changed.emit())
         wrapper = QWidget()
         wrapper.setStyleSheet("background: transparent;")
         lay = QHBoxLayout(wrapper)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setAlignment(Qt.AlignCenter)
-        lay.addWidget(cb)
+        lay.addWidget(sw)
         self.setCellWidget(r, 0, wrapper)
         for col, key in [(1, "key"), (2, "value"), (3, "description")]:
             item = QTableWidgetItem(str(data.get(key, "")))
@@ -326,8 +330,8 @@ class KeyValueTable(QTableWidget):
         out: list[dict] = []
         for r in range(self.rowCount()):
             wrapper = self.cellWidget(r, 0)
-            cb = wrapper.findChild(QCheckBox) if wrapper else None
-            enabled = bool(cb.isChecked()) if cb else True
+            sw = wrapper.findChild(ToggleSwitch) if wrapper else None
+            enabled = bool(sw.isChecked()) if sw else True
             key = (self.item(r, 1).text() if self.item(r, 1) else "").strip()
             value = (self.item(r, 2).text() if self.item(r, 2) else "")
             desc = (self.item(r, 3).text() if self.item(r, 3) else "")

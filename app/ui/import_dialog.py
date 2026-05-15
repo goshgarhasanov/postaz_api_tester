@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 from ..curl_import import parse_curl
 from ..database import RequestRecord
 from ..i18n import t
-from .widgets import GhostButton, PrimaryButton
+from .widgets import GhostButton
 
 
 class _PasteEdit(QPlainTextEdit):
@@ -38,11 +38,10 @@ class _PasteEdit(QPlainTextEdit):
 
 _IMPORT_TITLE = {"en": "Import cURL", "az": "cURL İdxalı", "tr": "cURL İçe Aktar"}
 _IMPORT_HINT = {
-    "en": "Paste a `curl …` command — it imports automatically as soon as it parses correctly.",
-    "az": "`curl …` əmrini yapışdırın — düzgün olan kimi avtomatik idxal edilir.",
-    "tr": "Bir `curl …` komutunu yapıştırın — geçerli olur olmaz otomatik içe aktarılır.",
+    "en": "Paste a `curl …` command — Postaz detects it automatically.",
+    "az": "`curl …` əmrini yapışdırın — Postaz onu avtomatik tanıyır.",
+    "tr": "Bir `curl …` komutunu yapıştırın — Postaz onu otomatik algılar.",
 }
-_IMPORT_BTN = {"en": "Import", "az": "İdxal et", "tr": "İçe Aktar"}
 _INVALID_CURL = {
     "en": "This doesn't look like a valid cURL command.",
     "az": "Bu, etibarlı bir cURL əmrinə bənzəmir.",
@@ -104,14 +103,12 @@ class ImportDialog(QDialog):
         self.error_label.setVisible(False)
         outer.addWidget(self.error_label)
 
+        # Only one button is needed — paste is the import action.
         btns = QHBoxLayout()
         btns.addStretch()
         cancel = GhostButton(t("Cancel"))
         cancel.clicked.connect(self.reject)
-        ok = PrimaryButton(_IMPORT_BTN.get(self._lang, _IMPORT_BTN["en"]))
-        ok.clicked.connect(self._import)
         btns.addWidget(cancel)
-        btns.addWidget(ok)
         outer.addLayout(btns)
 
     def _on_paste(self) -> None:
@@ -135,15 +132,3 @@ class ImportDialog(QDialog):
     def _show_error(self, message: str) -> None:
         self.error_label.setText(f"⚠  {message}")
         self.error_label.setVisible(True)
-
-    def _import(self) -> None:
-        """Manual fallback — same parse path, used when the user typed."""
-        text = self.editor.toPlainText().strip()
-        if not text:
-            return
-        try:
-            self.record = parse_curl(text)
-        except Exception as e:
-            self._show_error(str(e))
-            return
-        self.accept()
