@@ -95,11 +95,18 @@ def _build_kwargs(rec: RequestRecord, variables: dict[str, str]) -> tuple[str, d
             headers.setdefault("Content-Type", "application/json")
             kwargs["data"] = body_resolved.encode("utf-8")
         elif rec.body_type == "urlencoded":
-            try:
-                pairs = json.loads(body_resolved) if body_resolved.strip().startswith("[") else []
-            except Exception:
-                pairs = []
-            kwargs["data"] = [(p.get("key", ""), p.get("value", "")) for p in pairs]
+            # Accept either `key=val&key2=val2` (the common form) or a JSON
+            # array of {key, value} objects (for programmatic edits).
+            headers.setdefault("Content-Type", "application/x-www-form-urlencoded")
+            stripped = body_resolved.strip()
+            if stripped.startswith("["):
+                try:
+                    pairs = json.loads(stripped)
+                    kwargs["data"] = [(p.get("key", ""), p.get("value", "")) for p in pairs]
+                except Exception:
+                    kwargs["data"] = body_resolved.encode("utf-8")
+            else:
+                kwargs["data"] = body_resolved.encode("utf-8")
         elif rec.body_type == "raw":
             kwargs["data"] = body_resolved.encode("utf-8")
         else:

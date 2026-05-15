@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QActionGroup, QKeySequence
+from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QFileDialog,
     QLabel,
@@ -22,28 +22,25 @@ from PySide6.QtWidgets import (
 
 from ..database import Database, RequestRecord
 from ..http_client import ResponseData
-from ..i18n import LANGUAGE_LABELS, LANGUAGES, set_language, t, translator
+from ..i18n import t, translator
 from ..workers import submit
 from .dialogs import AboutDialog, EnvironmentDialog, SaveRequestDialog
 from .icons import (
     app_icon,
     icon_export,
-    icon_gear,
     icon_globe,
     icon_info,
-    icon_moon,
     icon_plus,
     icon_power,
     icon_save,
     icon_send,
-    icon_sun,
     icon_trash,
 )
 from .import_dialog import ImportDialog
 from .request_editor import RequestEditor
 from .response_viewer import ResponseViewer
 from .sidebar import Sidebar
-from .styles import DARK, LIGHT
+from .styles import DARK
 from .widgets import show_toast
 
 
@@ -61,8 +58,6 @@ class MainWindow(QMainWindow):
 
         # ── language (load saved before building UI) ────────────
         saved_lang = self.db.get_setting("language", "en") or "en"
-        if saved_lang not in LANGUAGES:
-            saved_lang = "en"
         translator.set_language(saved_lang)
 
         # ── central layout ───────────────────────────────────────
@@ -101,9 +96,8 @@ class MainWindow(QMainWindow):
         self.sidebar.history_selected.connect(self.open_history)
         self.sidebar.new_request_requested.connect(self.new_request_in_collection)
 
-        # ── theme ────────────────────────────────────────────────
-        self.theme = self.db.get_setting("theme", "dark") or "dark"
-        self.apply_theme(self.theme)
+        # ── theme (dark only) ────────────────────────────────────
+        self.setStyleSheet(DARK)
 
         translator.language_changed.connect(self._retranslate_menus)
         self._update_env_label()
@@ -170,31 +164,10 @@ class MainWindow(QMainWindow):
         # View
         m_view = mb.addMenu(t("&View"))
         self._menus["view"] = m_view
-        a_theme = QAction(icon_moon(), t("Toggle Theme"), self)
-        a_theme.setShortcut("Ctrl+T")
-        a_theme.triggered.connect(self.toggle_theme)
-        m_view.addAction(a_theme)
-        self._actions["theme"] = a_theme
-
         a_clear_hist = QAction(icon_trash(), t("Clear History"), self)
         a_clear_hist.triggered.connect(self.clear_history)
         m_view.addAction(a_clear_hist)
         self._actions["clear_hist"] = a_clear_hist
-
-        # Language
-        m_lang = mb.addMenu(t("&Language"))
-        self._menus["lang"] = m_lang
-        lang_group = QActionGroup(self)
-        lang_group.setExclusive(True)
-        self._lang_actions: dict[str, QAction] = {}
-        for code in LANGUAGES:
-            act = QAction(LANGUAGE_LABELS[code], self)
-            act.setCheckable(True)
-            act.setChecked(code == translator.language)
-            act.triggered.connect(lambda _c, lc=code: self._switch_language(lc))
-            lang_group.addAction(act)
-            m_lang.addAction(act)
-            self._lang_actions[code] = act
 
         # Help
         m_help = mb.addMenu(t("&Help"))
@@ -212,7 +185,6 @@ class MainWindow(QMainWindow):
         self._menus["request"].setTitle(t("&Request"))
         self._menus["env"].setTitle(t("&Environments"))
         self._menus["view"].setTitle(t("&View"))
-        self._menus["lang"].setTitle(t("&Language"))
         self._menus["help"].setTitle(t("&Help"))
 
         self._actions["new_request"].setText(t("New Request"))
@@ -222,19 +194,10 @@ class MainWindow(QMainWindow):
         self._actions["quit"].setText(t("Quit"))
         self._actions["send"].setText(t("Send"))
         self._actions["manage_env"].setText(t("Manage…"))
-        self._actions["theme"].setText(t("Toggle Theme"))
         self._actions["clear_hist"].setText(t("Clear History"))
         self._actions["about"].setText(t("About"))
         # status + env label
         self._update_env_label()
-
-    def _switch_language(self, code: str) -> None:
-        """Switch UI language live and remember the choice for next launch."""
-        set_language(code)
-        self.db.set_setting("language", code)
-        for c, act in self._lang_actions.items():
-            act.setChecked(c == code)
-        self.statusBar().showMessage(t("Ready"), 1500)
 
     def _build_status(self) -> None:
         bar = QStatusBar()
@@ -242,17 +205,6 @@ class MainWindow(QMainWindow):
         self.env_label.setStyleSheet("padding: 2px 8px;")
         bar.addPermanentWidget(self.env_label)
         self.setStatusBar(bar)
-
-    # ── theme ────────────────────────────────────────────────────────
-    def apply_theme(self, theme: str) -> None:
-        self.theme = theme
-        self.setStyleSheet(DARK if theme == "dark" else LIGHT)
-        self.db.set_setting("theme", theme)
-        if "theme" in self._actions:
-            self._actions["theme"].setIcon(icon_sun() if theme == "dark" else icon_moon())
-
-    def toggle_theme(self) -> None:
-        self.apply_theme("light" if self.theme == "dark" else "dark")
 
     # ── request lifecycle ────────────────────────────────────────────
     def new_request(self) -> None:
@@ -405,9 +357,7 @@ class MainWindow(QMainWindow):
         self.current_request = dlg.record
         self.editor.load(self.current_request)
         self.response.clear()
-        show_toast(self, t("Imported request"), "success") if False else show_toast(
-            self, "cURL ✓", "success"
-        )
+        show_toast(self, "cURL ✓", "success")
 
     # ── env / misc ───────────────────────────────────────────────────
     def open_environments(self) -> None:

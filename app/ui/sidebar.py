@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Optional
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction, QFont, QIcon
+from PySide6.QtGui import QAction, QActionGroup, QFont, QIcon
 from PySide6.QtWidgets import (
     QButtonGroup,
     QFrame,
@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QStackedWidget,
+    QToolButton,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -30,8 +31,8 @@ from PySide6.QtWidgets import (
 )
 
 from ..database import Database, RequestRecord
-from ..i18n import t, translator
-from .icons import icon_folder, icon_plus
+from ..i18n import LANGUAGE_LABELS, LANGUAGES, set_language, t, translator
+from .icons import icon_folder, icon_globe, icon_plus
 from .logo import Logo
 from .widgets import IconButton
 
@@ -61,14 +62,38 @@ class Sidebar(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        # ─ Brand header ──────────────────────────────────────────────────
+        # ─ Brand header (logo + language picker) ─────────────────────────
         brand_wrap = QFrame()
         brand_wrap.setObjectName("brandWrap")
         bl = QHBoxLayout(brand_wrap)
-        bl.setContentsMargins(16, 14, 16, 8)
+        bl.setContentsMargins(16, 14, 16, 10)
+        bl.setSpacing(8)
         self.logo = Logo(self, height=26)
         bl.addWidget(self.logo)
         bl.addStretch()
+
+        # Always-visible language chip — opens a popup menu with EN/AZ/TR
+        self.lang_btn = QToolButton()
+        self.lang_btn.setObjectName("langButton")
+        self.lang_btn.setCursor(Qt.PointingHandCursor)
+        self.lang_btn.setIcon(icon_globe("#a89bff"))
+        self.lang_btn.setPopupMode(QToolButton.InstantPopup)
+        self.lang_btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self.lang_btn.setText(translator.language.upper())
+        lang_menu = QMenu(self.lang_btn)
+        self._lang_actions: dict[str, QAction] = {}
+        group = QActionGroup(self)
+        group.setExclusive(True)
+        for code in LANGUAGES:
+            act = QAction(LANGUAGE_LABELS[code], self.lang_btn)
+            act.setCheckable(True)
+            act.setChecked(code == translator.language)
+            act.triggered.connect(lambda _c=False, lc=code: self._switch_language(lc))
+            group.addAction(act)
+            lang_menu.addAction(act)
+            self._lang_actions[code] = act
+        self.lang_btn.setMenu(lang_menu)
+        bl.addWidget(self.lang_btn)
         outer.addWidget(brand_wrap)
 
         # ─ Tab bar ───────────────────────────────────────────────────────
@@ -141,8 +166,17 @@ class Sidebar(QWidget):
         self.btn_history.setText(t("History"))
         self.btn_add.setToolTip(t("New collection"))
         self.search.setPlaceholderText(t("Search…"))
+        self.lang_btn.setText(translator.language.upper())
+        for code, act in self._lang_actions.items():
+            act.setChecked(code == translator.language)
         self._reload_tree()
         self._reload_history()
+
+    def _switch_language(self, code: str) -> None:
+        """Apply the chosen language, persist it to the DB, refresh the chip."""
+        set_language(code)
+        self.db.set_setting("language", code)
+        self.lang_btn.setText(code.upper())
 
     # ── public ────────────────────────────────────────────────────────────
     def refresh(self) -> None:
