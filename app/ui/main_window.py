@@ -1,11 +1,15 @@
-"""Top-level window: splitters, menu, theme, state."""
+"""Top-level window.
+
+Owns the three primary panels (sidebar / request editor / response viewer),
+the menu bar, the status bar, and every cross-panel signal wire. State that
+needs to outlive a single session (theme, current language) lives in the DB
+settings table — everything else is reactive."""
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QAction, QIcon, QKeySequence
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction, QActionGroup, QKeySequence
 from PySide6.QtWidgets import (
     QFileDialog,
     QLabel,
@@ -13,15 +17,29 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QSplitter,
     QStatusBar,
-    QToolBar,
-    QVBoxLayout,
     QWidget,
 )
 
 from ..database import Database, RequestRecord
 from ..http_client import ResponseData
+from ..i18n import LANGUAGE_LABELS, LANGUAGES, set_language, t, translator
 from ..workers import submit
-from .dialogs import EnvironmentDialog, SaveRequestDialog
+from .dialogs import AboutDialog, EnvironmentDialog, SaveRequestDialog
+from .icons import (
+    app_icon,
+    icon_export,
+    icon_gear,
+    icon_globe,
+    icon_info,
+    icon_moon,
+    icon_plus,
+    icon_power,
+    icon_save,
+    icon_send,
+    icon_sun,
+    icon_trash,
+)
+from .import_dialog import ImportDialog
 from .request_editor import RequestEditor
 from .response_viewer import ResponseViewer
 from .sidebar import Sidebar
@@ -36,9 +54,16 @@ class MainWindow(QMainWindow):
         self.current_request: RequestRecord = RequestRecord()
         self._sending = False
 
-        self.setWindowTitle("Local API Tester")
+        self.setWindowIcon(app_icon(64))
+        self.setWindowTitle("Postaz")
         self.resize(1320, 820)
         self.setMinimumSize(960, 600)
+
+        # ── language (load saved before building UI) ────────────
+        saved_lang = self.db.get_setting("language", "en") or "en"
+        if saved_lang not in LANGUAGES:
+            saved_lang = "en"
+        translator.set_language(saved_lang)
 
         # ── central layout ───────────────────────────────────────
         self.sidebar = Sidebar(db, self)
@@ -63,6 +88,8 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(main_split)
 
         # ── menu + status ────────────────────────────────────────
+        self._actions: dict[str, QAction] = {}
+        self._menus: dict[str, "object"] = {}
         self._build_menu()
         self._build_status()
 
@@ -75,78 +102,154 @@ class MainWindow(QMainWindow):
         self.sidebar.new_request_requested.connect(self.new_request_in_collection)
 
         # ── theme ────────────────────────────────────────────────
-        self.theme = self.db.get_setting("theme", "dark")
+        self.theme = self.db.get_setting("theme", "dark") or "dark"
         self.apply_theme(self.theme)
 
-        # ── ready ────────────────────────────────────────────────
+        translator.language_changed.connect(self._retranslate_menus)
         self._update_env_label()
+        self.statusBar().showMessage(t("Ready"), 2500)
 
     # ── menu / shortcuts ─────────────────────────────────────────────
     def _build_menu(self) -> None:
         mb = self.menuBar()
 
-        m_file = mb.addMenu("&File")
-        a_new = QAction("New Request", self)
+        # File
+        m_file = mb.addMenu(t("&File"))
+        self._menus["file"] = m_file
+
+        a_new = QAction(icon_plus(), t("New Request"), self)
         a_new.setShortcut(QKeySequence.New)
         a_new.triggered.connect(self.new_request)
         m_file.addAction(a_new)
+        self._actions["new_request"] = a_new
 
-        a_save = QAction("Save", self)
+        a_save = QAction(icon_save(), t("Save"), self)
         a_save.setShortcut(QKeySequence.Save)
         a_save.triggered.connect(self.on_save)
         m_file.addAction(a_save)
+        self._actions["save"] = a_save
+
         m_file.addSeparator()
 
-        a_export = QAction("Export Response…", self)
+        a_import = QAction(icon_plus(), self._tr_import(), self)
+        a_import.setShortcut("Ctrl+I")
+        a_import.triggered.connect(self.open_import)
+        m_file.addAction(a_import)
+        self._actions["import"] = a_import
+
+        a_export = QAction(icon_export(), t("Export Response…"), self)
         a_export.triggered.connect(self._export_response)
         m_file.addAction(a_export)
-        m_file.addSeparator()
+        self._actions["export"] = a_export
 
-        a_quit = QAction("Quit", self)
+        m_file.addSeparator()
+        a_quit = QAction(icon_power(), t("Quit"), self)
         a_quit.setShortcut("Ctrl+Q")
         a_quit.triggered.connect(self.close)
         m_file.addAction(a_quit)
+        self._actions["quit"] = a_quit
 
-        m_req = mb.addMenu("&Request")
-        a_send = QAction("Send", self)
+        # Request
+        m_req = mb.addMenu(t("&Request"))
+        self._menus["request"] = m_req
+        a_send = QAction(icon_send("#7c5cff"), t("Send"), self)
         a_send.setShortcut("Ctrl+Return")
         a_send.triggered.connect(self.on_send)
         m_req.addAction(a_send)
+        self._actions["send"] = a_send
 
-        m_env = mb.addMenu("&Environments")
-        a_envs = QAction("Manage…", self)
+        # Environments
+        m_env = mb.addMenu(t("&Environments"))
+        self._menus["env"] = m_env
+        a_envs = QAction(icon_globe(), t("Manage…"), self)
         a_envs.setShortcut("Ctrl+E")
         a_envs.triggered.connect(self.open_environments)
         m_env.addAction(a_envs)
+        self._actions["manage_env"] = a_envs
 
-        m_view = mb.addMenu("&View")
-        a_theme = QAction("Toggle Theme", self)
+        # View
+        m_view = mb.addMenu(t("&View"))
+        self._menus["view"] = m_view
+        a_theme = QAction(icon_moon(), t("Toggle Theme"), self)
         a_theme.setShortcut("Ctrl+T")
         a_theme.triggered.connect(self.toggle_theme)
         m_view.addAction(a_theme)
+        self._actions["theme"] = a_theme
 
-        a_clear_hist = QAction("Clear History", self)
+        a_clear_hist = QAction(icon_trash(), t("Clear History"), self)
         a_clear_hist.triggered.connect(self.clear_history)
         m_view.addAction(a_clear_hist)
+        self._actions["clear_hist"] = a_clear_hist
 
-        m_help = mb.addMenu("&Help")
-        a_about = QAction("About", self)
+        # Language
+        m_lang = mb.addMenu(t("&Language"))
+        self._menus["lang"] = m_lang
+        lang_group = QActionGroup(self)
+        lang_group.setExclusive(True)
+        self._lang_actions: dict[str, QAction] = {}
+        for code in LANGUAGES:
+            act = QAction(LANGUAGE_LABELS[code], self)
+            act.setCheckable(True)
+            act.setChecked(code == translator.language)
+            act.triggered.connect(lambda _c, lc=code: self._switch_language(lc))
+            lang_group.addAction(act)
+            m_lang.addAction(act)
+            self._lang_actions[code] = act
+
+        # Help
+        m_help = mb.addMenu(t("&Help"))
+        self._menus["help"] = m_help
+        a_about = QAction(icon_info(), t("About"), self)
         a_about.triggered.connect(self._about)
         m_help.addAction(a_about)
+        self._actions["about"] = a_about
+
+    def _tr_import(self) -> str:
+        return {"en": "Import cURL…", "az": "cURL idxal et…", "tr": "cURL İçe Aktar…"}[translator.language]
+
+    def _retranslate_menus(self, _lang: str | None = None) -> None:
+        self._menus["file"].setTitle(t("&File"))
+        self._menus["request"].setTitle(t("&Request"))
+        self._menus["env"].setTitle(t("&Environments"))
+        self._menus["view"].setTitle(t("&View"))
+        self._menus["lang"].setTitle(t("&Language"))
+        self._menus["help"].setTitle(t("&Help"))
+
+        self._actions["new_request"].setText(t("New Request"))
+        self._actions["save"].setText(t("Save"))
+        self._actions["import"].setText(self._tr_import())
+        self._actions["export"].setText(t("Export Response…"))
+        self._actions["quit"].setText(t("Quit"))
+        self._actions["send"].setText(t("Send"))
+        self._actions["manage_env"].setText(t("Manage…"))
+        self._actions["theme"].setText(t("Toggle Theme"))
+        self._actions["clear_hist"].setText(t("Clear History"))
+        self._actions["about"].setText(t("About"))
+        # status + env label
+        self._update_env_label()
+
+    def _switch_language(self, code: str) -> None:
+        """Switch UI language live and remember the choice for next launch."""
+        set_language(code)
+        self.db.set_setting("language", code)
+        for c, act in self._lang_actions.items():
+            act.setChecked(c == code)
+        self.statusBar().showMessage(t("Ready"), 1500)
 
     def _build_status(self) -> None:
         bar = QStatusBar()
-        self.env_label = QLabel("No env")
+        self.env_label = QLabel(t("No environment"))
         self.env_label.setStyleSheet("padding: 2px 8px;")
         bar.addPermanentWidget(self.env_label)
         self.setStatusBar(bar)
-        bar.showMessage("Ready", 2500)
 
     # ── theme ────────────────────────────────────────────────────────
     def apply_theme(self, theme: str) -> None:
         self.theme = theme
         self.setStyleSheet(DARK if theme == "dark" else LIGHT)
         self.db.set_setting("theme", theme)
+        if "theme" in self._actions:
+            self._actions["theme"].setIcon(icon_sun() if theme == "dark" else icon_moon())
 
     def toggle_theme(self) -> None:
         self.apply_theme("light" if self.theme == "dark" else "dark")
@@ -156,7 +259,7 @@ class MainWindow(QMainWindow):
         self.current_request = RequestRecord()
         self.editor.load(self.current_request)
         self.response.clear()
-        self.statusBar().showMessage("New request", 1500)
+        self.statusBar().showMessage(t("New request"), 1500)
 
     def new_request_in_collection(self, collection_id: int) -> None:
         self.current_request = RequestRecord(collection_id=collection_id or None)
@@ -170,7 +273,7 @@ class MainWindow(QMainWindow):
         self.current_request = rec
         self.editor.load(rec)
         self.response.clear()
-        self.statusBar().showMessage(f"Opened: {rec.name}", 1500)
+        self.statusBar().showMessage(t("Opened: {name}", name=rec.name), 1500)
 
     def open_history(self, history_id: int) -> None:
         for h in self.db.list_history(200):
@@ -191,7 +294,6 @@ class MainWindow(QMainWindow):
             )
             self.current_request = rec
             self.editor.load(rec)
-            # reconstruct ResponseData lightly for view
             from ..http_client import ResponseData as RD
             r = snap.get("response", {})
             resp = RD(
@@ -207,7 +309,7 @@ class MainWindow(QMainWindow):
                 final_url=r.get("final_url", ""),
             )
             self.response.show_response(resp)
-            self.statusBar().showMessage("Loaded from history", 1500)
+            self.statusBar().showMessage(t("Loaded from history"), 1500)
             return
 
     def _on_editor_changed(self) -> None:
@@ -215,11 +317,17 @@ class MainWindow(QMainWindow):
 
     # ── send ─────────────────────────────────────────────────────────
     def on_send(self) -> None:
+        """Kick off an HTTP request on a worker thread.
+
+        Guards against double-fire while a request is already in flight
+        (the Send button is disabled but the keyboard shortcut isn't).
+        Pulls variables from the active environment and hands everything
+        to the `workers.submit()` helper."""
         if self._sending:
             return
         rec = self.editor.to_record(self.current_request)
         if not rec.url.strip():
-            show_toast(self, "URL is required", "warn")
+            show_toast(self, t("URL is required"), "warn")
             return
         env = self.db.get_active_environment()
         variables = (env or {}).get("variables", {}) if env else {}
@@ -227,11 +335,11 @@ class MainWindow(QMainWindow):
         self._sending = True
         self.editor.set_sending(True)
         self.response.show_loading()
-        self.statusBar().showMessage(f"Sending {rec.method} {rec.url}…")
-
+        self.statusBar().showMessage(f"{rec.method} {rec.url}")
         submit(rec, variables, self._on_response_ready)
 
     def _on_response_ready(self, resp: ResponseData) -> None:
+        """Worker callback — paints the response, persists a snapshot to history."""
         self._sending = False
         self.editor.set_sending(False)
         self.response.show_response(resp)
@@ -252,30 +360,28 @@ class MainWindow(QMainWindow):
                 "error": resp.error,
                 "reason": resp.reason,
                 "headers": resp.headers,
-                "body_text": resp.body_text[:200_000],  # cap stored size
+                "body_text": resp.body_text[:200_000],
                 "content_type": resp.content_type,
                 "size_bytes": resp.size_bytes,
                 "final_url": resp.final_url,
             },
         }
-        self.db.add_history(
-            rec.method,
-            rec.url,
-            resp.status_code,
-            resp.duration_ms,
-            snapshot,
-        )
+        self.db.add_history(rec.method, rec.url, resp.status_code, resp.duration_ms, snapshot)
         self.sidebar._reload_history()
         if resp.ok:
             self.statusBar().showMessage(
                 f"{resp.status_code} {resp.reason} • {resp.duration_ms} ms", 4000
             )
         else:
-            show_toast(self, resp.error or "Request failed", "error")
-            self.statusBar().showMessage("Request failed", 4000)
+            show_toast(self, resp.error or t("Request failed"), "error")
+            self.statusBar().showMessage(t("Request failed"), 4000)
 
     # ── save ─────────────────────────────────────────────────────────
     def on_save(self) -> None:
+        """Persist the current editor state.
+
+        First-time saves prompt for a name + target collection; subsequent
+        saves silently overwrite the existing row."""
         rec = self.editor.to_record(self.current_request)
         if rec.id is None:
             dlg = SaveRequestDialog(self.db, default_name=rec.name, parent=self)
@@ -286,9 +392,22 @@ class MainWindow(QMainWindow):
             rec.collection_id = collection_id
         self.db.save_request(rec)
         self.current_request = rec
-        self.editor.load(rec)  # picks up id-aware state
+        self.editor.load(rec)
         self.sidebar._reload_tree()
-        show_toast(self, "Saved", "success")
+        show_toast(self, t("Saved"), "success")
+
+    # ── import ───────────────────────────────────────────────────────
+    def open_import(self) -> None:
+        """Open the cURL import dialog and load the parsed result into the editor."""
+        dlg = ImportDialog(self)
+        if dlg.exec() != dlg.Accepted or dlg.record is None:
+            return
+        self.current_request = dlg.record
+        self.editor.load(self.current_request)
+        self.response.clear()
+        show_toast(self, t("Imported request"), "success") if False else show_toast(
+            self, "cURL ✓", "success"
+        )
 
     # ── env / misc ───────────────────────────────────────────────────
     def open_environments(self) -> None:
@@ -305,33 +424,27 @@ class MainWindow(QMainWindow):
                 "padding: 2px 10px; color: #7c5cff; font-weight: 600;"
             )
         else:
-            self.env_label.setText("No environment")
+            self.env_label.setText(t("No environment"))
             self.env_label.setStyleSheet("padding: 2px 10px; color: #6b6f88;")
 
     def clear_history(self) -> None:
         r = QMessageBox.question(
-            self, "Clear", "Clear all request history?", QMessageBox.Yes | QMessageBox.No
+            self, t("Clear"), t("Clear all request history?"), QMessageBox.Yes | QMessageBox.No
         )
         if r == QMessageBox.Yes:
             self.db.clear_history()
             self.sidebar._reload_history()
-            show_toast(self, "History cleared", "info")
+            show_toast(self, t("History cleared"), "info")
 
     def _export_response(self) -> None:
         body = self.response.body_view.toPlainText()
         if not body:
-            show_toast(self, "No response to export", "warn")
+            show_toast(self, t("No response to export"), "warn")
             return
-        path, _ = QFileDialog.getSaveFileName(self, "Export response", "response.txt")
+        path, _ = QFileDialog.getSaveFileName(self, t("Export response"), "response.txt")
         if path:
             Path(path).write_text(body, encoding="utf-8")
-            show_toast(self, "Exported", "success")
+            show_toast(self, t("Exported"), "success")
 
     def _about(self) -> None:
-        QMessageBox.about(
-            self,
-            "About",
-            "<h3>Local API Tester</h3>"
-            "<p>A lightweight Postman-style client.</p>"
-            "<p>Built with PySide6 + SQLite.</p>",
-        )
+        AboutDialog(self).exec()

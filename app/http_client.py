@@ -1,4 +1,11 @@
-"""HTTP execution layer — pure, threadable."""
+"""HTTP execution layer — pure, threadable.
+
+Converts a `RequestRecord` (the persistent shape of a saved request) plus the
+active environment's variable map into a real `requests` call, then packages
+the answer in a `ResponseData` dataclass that the UI can render synchronously.
+
+Nothing in this module touches Qt — that's deliberate so workers can run
+on any thread and we can unit-test the call assembly in isolation."""
 from __future__ import annotations
 
 import base64
@@ -34,6 +41,11 @@ class ResponseData:
 
 
 def _build_kwargs(rec: RequestRecord, variables: dict[str, str]) -> tuple[str, dict[str, Any]]:
+    """Resolve `{{vars}}` and translate the saved record into `requests.request` kwargs.
+
+    Returns `(url, kwargs)` ready to be unpacked. Auth presets are folded into
+    the `headers` dict here, not handed to `requests.auth=`, so the user can
+    inspect the exact Authorization header that goes on the wire."""
     url = resolve(rec.url, variables).strip()
     if not url:
         raise ValueError("URL is empty")
@@ -97,7 +109,11 @@ def _build_kwargs(rec: RequestRecord, variables: dict[str, str]) -> tuple[str, d
 
 
 def execute(rec: RequestRecord, variables: dict[str, str]) -> ResponseData:
-    """Synchronously run a request. Intended to be called from a worker thread."""
+    """Synchronously run a request and capture everything we want to display.
+
+    Intended to be called from a Qt worker thread (see `app.workers`). Any
+    network / parsing exception is converted into a `ResponseData(ok=False)`
+    so the UI never has to deal with bare `Exception` objects."""
     try:
         url, kwargs = _build_kwargs(rec, variables)
     except ValueError as e:

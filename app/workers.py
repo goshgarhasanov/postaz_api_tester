@@ -1,4 +1,8 @@
-"""QThread-based HTTP worker so the UI never freezes."""
+"""Threaded HTTP worker — keeps the UI responsive while the server replies.
+
+We use Qt's global `QThreadPool` (a worker-queue, not raw threads) so multiple
+concurrent requests are cheap. Each worker emits its result over a `Signal`,
+which Qt safely marshals back to the UI thread before invoking the callback."""
 from __future__ import annotations
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal, Slot
@@ -31,6 +35,10 @@ class RequestWorker(QRunnable):
 
 
 def submit(rec: RequestRecord, variables: dict[str, str], on_done) -> RequestWorker:
+    """Fire-and-forget helper: build a worker, wire the callback, dispatch.
+
+    `on_done` runs on the UI thread (because that's where the signal was
+    connected) and receives a `ResponseData` instance."""
     worker = RequestWorker(rec, variables)
     worker.signals.finished.connect(on_done)
     QThreadPool.globalInstance().start(worker)

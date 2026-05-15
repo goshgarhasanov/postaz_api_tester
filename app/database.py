@@ -1,4 +1,13 @@
-"""SQLite persistence layer."""
+"""SQLite persistence layer.
+
+Owns every piece of durable state the app cares about: collections, saved
+requests, request history, environments and a small key/value settings store.
+The class is intentionally thin — it speaks SQL and returns plain dataclasses /
+dicts. UI code never touches the connection directly.
+
+Thread-safety: each calling thread receives its **own** sqlite3 connection
+through `threading.local`. SQLite itself handles cross-connection isolation
+(we run in WAL mode for fast concurrent reads + a single writer)."""
 from __future__ import annotations
 
 import json
@@ -119,16 +128,22 @@ class Database:
         self._init_schema()
 
     def _conn(self) -> sqlite3.Connection:
+        """Return (and lazily create) a connection bound to the current thread.
+
+        Each Qt worker thread that touches the DB gets its own connection so
+        we never share a `sqlite3.Connection` across threads (which is
+        unsupported in sqlite3 without `check_same_thread=False`)."""
         conn = getattr(self._local, "conn", None)
         if conn is None:
             conn = sqlite3.connect(str(self.path), check_same_thread=False)
-            conn.row_factory = sqlite3.Row
-            conn.execute("PRAGMA foreign_keys = ON")
-            conn.execute("PRAGMA journal_mode = WAL")
+            conn.row_factory = sqlite3.Row              # rows accessed by column name
+            conn.execute("PRAGMA foreign_keys = ON")    # enforce cascading deletes
+            conn.execute("PRAGMA journal_mode = WAL")   # readers don't block writers
             self._local.conn = conn
         return conn
 
     def _init_schema(self) -> None:
+        """Run the idempotent schema script — safe to call on every startup."""
         with self._conn() as c:
             c.executescript(SCHEMA)
             c.execute(
@@ -137,6 +152,7 @@ class Database:
             )
 
     # ── settings ──────────────────────────────────────────────────────────
+    # Simple key/value store used for things like remembered language and theme.
     def get_setting(self, key: str, default: Optional[str] = None) -> Optional[str]:
         row = self._conn().execute(
             "SELECT value FROM settings WHERE key = ?", (key,)
@@ -152,7 +168,10 @@ class Database:
             )
 
     # ── collections ───────────────────────────────────────────────────────
+    # Collections are simple named folders. They can nest (`parent_id`) but the
+    # sidebar currently renders only a single level — the schema is ready for more.
     def list_collections(self) -> list[CollectionNode]:
+        """Return every collection, ordered by position then name."""
         rows = self._conn().execute(
             "SELECT id, name, parent_id, position FROM collections ORDER BY position, name"
         ).fetchall()
@@ -175,7 +194,11 @@ class Database:
             c.execute("DELETE FROM collections WHERE id = ?", (collection_id,))
 
     # ── requests ──────────────────────────────────────────────────────────
+    # A "request" is one saved HTTP call (method + url + headers + body + auth).
+    # Lists/dicts are stored as JSON text so the schema doesn't need migration
+    # every time we add a body type or auth scheme.
     def list_requests(self, collection_id: Optional[int] = None) -> list[RequestRecord]:
+        """Requests inside one collection (or `None` for root-level "Quick Saves")."""
         if collection_id is None:
             rows = self._conn().execute(
                 "SELECT * FROM requests WHERE collection_id IS NULL ORDER BY position, name"
@@ -194,6 +217,10 @@ class Database:
         return RequestRecord.from_row(row) if row else None
 
     def save_request(self, rec: RequestRecord) -> int:
+        """Insert when `rec.id is None`, otherwise update in place.
+
+        Mutates `rec.id` on insert so the caller can keep the same dataclass
+        instance after saving and trigger further updates without re-fetching."""
         payload = (
             rec.collection_id,
             rec.name,
@@ -228,6 +255,9 @@ class Database:
             c.execute("DELETE FROM requests WHERE id = ?", (request_id,))
 
     # ── history ───────────────────────────────────────────────────────────
+    # Every executed request leaves a row here with both request + response
+    # JSON snapshots. We cap the table at 200 rows by deleting overflow after
+    # each insert — keeps the file small and the sidebar list snappy.
     def add_history(
         self,
         method: str,
@@ -271,6 +301,9 @@ class Database:
             c.execute("DELETE FROM history")
 
     # ── environments ──────────────────────────────────────────────────────
+    # An environment is a named bag of `{key: value}` variables. Exactly one
+    # row carries `is_active=1` at a time and supplies the substitutions for
+    # `{{var}}` placeholders inside URLs, headers, body and auth fields.
     def list_environments(self) -> list[dict]:
         rows = self._conn().execute(
             "SELECT id, name, variables, is_active FROM environments ORDER BY name"

@@ -1,4 +1,9 @@
-"""Variable substitution: {{var}} → environment value."""
+"""Variable substitution — `{{var}}` placeholders → environment values.
+
+Used by the HTTP layer right before a call goes out. Unknown placeholders are
+intentionally left intact so the user sees `{{token}}` in the URL bar and
+realises they forgot to activate an environment, rather than silently
+sending an empty string."""
 from __future__ import annotations
 
 import re

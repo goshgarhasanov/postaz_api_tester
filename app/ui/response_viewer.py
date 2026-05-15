@@ -1,16 +1,15 @@
-"""Response panel: status badge, time, size, body tabs."""
+"""Response panel.
+
+Top row: colored status badge + timing + size meta.
+Bottom: tabbed view of the response — pretty JSON / Headers / Raw bytes.
+While a request is in flight, a translucent overlay with a spinner covers
+the whole panel."""
 from __future__ import annotations
 
 import json
-import re
 
 from PySide6.QtCore import QRegularExpression, Qt
-from PySide6.QtGui import (
-    QColor,
-    QFont,
-    QSyntaxHighlighter,
-    QTextCharFormat,
-)
+from PySide6.QtGui import QColor, QFont, QSyntaxHighlighter, QTextCharFormat
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -25,13 +24,17 @@ from PySide6.QtWidgets import (
 )
 
 from ..http_client import ResponseData
+from ..i18n import t, translator
 from .animations import fade_in
 from .widgets import LoaderOverlay, StatusBadge
 
 
-# ── JSON highlighter ──────────────────────────────────────────────────────
 class JsonHighlighter(QSyntaxHighlighter):
-    """Minimal JSON syntax coloring."""
+    """Minimal JSON colorizer.
+
+    Just enough rules to make a response readable at a glance: object keys
+    in blue, strings in green, numbers in orange, true/false/null in pink,
+    structural punctuation in muted grey."""
 
     def __init__(self, doc):
         super().__init__(doc)
@@ -65,7 +68,6 @@ class ResponseViewer(QWidget):
         outer.setContentsMargins(16, 8, 16, 16)
         outer.setSpacing(10)
 
-        # ── meta bar (status / time / size) ──────────────────────
         meta = QFrame()
         ml = QHBoxLayout(meta)
         ml.setContentsMargins(0, 0, 0, 0)
@@ -73,10 +75,7 @@ class ResponseViewer(QWidget):
 
         self.status = StatusBadge()
         self.time_label = QLabel("—")
-        self.time_label.setObjectName("metaLabel")
         self.size_label = QLabel("—")
-        self.size_label.setObjectName("metaLabel")
-
         for lbl in (self.time_label, self.size_label):
             lbl.setStyleSheet("color: #8b8fab; font-size: 12px;")
 
@@ -95,51 +94,47 @@ class ResponseViewer(QWidget):
         ml.addStretch()
         outer.addWidget(meta)
 
-        # ── tabs ─────────────────────────────────────────────────
         self.tabs = QTabWidget()
         outer.addWidget(self.tabs, 1)
 
-        # Body
         self.body_view = QPlainTextEdit()
         self.body_view.setReadOnly(True)
         self.body_view.setFont(QFont("Consolas", 11))
         self.body_view.setLineWrapMode(QPlainTextEdit.NoWrap)
+        self.body_view.setPlaceholderText(t("Response body will appear here."))
         self.body_highlighter = JsonHighlighter(self.body_view.document())
-        self.tabs.addTab(self.body_view, "Body")
+        self.tabs.addTab(self.body_view, t("Body"))
 
-        # Headers
         self.headers_table = QTableWidget(0, 2)
-        self.headers_table.setHorizontalHeaderLabels(["Header", "Value"])
+        self.headers_table.setHorizontalHeaderLabels([t("Header"), t("Value")])
         self.headers_table.verticalHeader().setVisible(False)
         self.headers_table.setShowGrid(False)
         self.headers_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.headers_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.tabs.addTab(self.headers_table, "Headers")
+        self.tabs.addTab(self.headers_table, t("Headers"))
 
-        # Raw
         self.raw_view = QPlainTextEdit()
         self.raw_view.setReadOnly(True)
         self.raw_view.setFont(QFont("Consolas", 11))
-        self.tabs.addTab(self.raw_view, "Raw")
+        self.tabs.addTab(self.raw_view, t("Raw"))
 
-        # placeholder
-        self.placeholder = QLabel("Send a request to see the response here.")
-        self.placeholder.setAlignment(Qt.AlignCenter)
-        self.placeholder.setStyleSheet("color: #6b6f88; font-size: 13px; padding: 40px;")
-        self.body_view.setPlaceholderText("Response body will appear here.")
-
-        # loader overlay (covers the panel)
         self.loader = LoaderOverlay(self)
-
+        translator.language_changed.connect(self._retranslate)
         self.clear()
 
     def resizeEvent(self, ev):
         super().resizeEvent(ev)
         self.loader.resize(self.size())
 
-    # ── api ──────────────────────────────────────────────────────────
+    def _retranslate(self, _lang: str | None = None) -> None:
+        self.tabs.setTabText(0, t("Body"))
+        self.tabs.setTabText(1, t("Headers"))
+        self.tabs.setTabText(2, t("Raw"))
+        self.headers_table.setHorizontalHeaderLabels([t("Header"), t("Value")])
+        self.body_view.setPlaceholderText(t("Response body will appear here."))
+
     def show_loading(self) -> None:
-        self.loader.start("Sending request…")
+        self.loader.start(t("Sending request…"))
 
     def hide_loading(self) -> None:
         self.loader.stop()
@@ -153,10 +148,14 @@ class ResponseViewer(QWidget):
         self.headers_table.setRowCount(0)
 
     def show_response(self, resp: ResponseData) -> None:
+        """Paint a finished response (success OR network/parse failure).
+
+        On failure the status badge turns red and the error message goes
+        into the body tab so it's the first thing the user sees."""
         self.hide_loading()
         if not resp.ok:
             self.status.set_error()
-            self.body_view.setPlainText(resp.error or "Unknown error")
+            self.body_view.setPlainText(resp.error or "")
             self.raw_view.setPlainText(resp.error or "")
             self.time_label.setText(f"{resp.duration_ms} ms")
             self.size_label.setText("—")
@@ -168,7 +167,6 @@ class ResponseViewer(QWidget):
         self.time_label.setText(f"{resp.duration_ms} ms")
         self.size_label.setText(_humanize_size(resp.size_bytes))
 
-        # Body — pretty JSON if possible
         body = resp.body_text
         if resp.is_json:
             try:
@@ -178,7 +176,6 @@ class ResponseViewer(QWidget):
         self.body_view.setPlainText(body)
         self.raw_view.setPlainText(resp.body_text)
 
-        # Headers
         self.headers_table.setRowCount(0)
         for k, v in resp.headers.items():
             r = self.headers_table.rowCount()

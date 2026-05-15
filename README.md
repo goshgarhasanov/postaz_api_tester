@@ -1,8 +1,10 @@
 <div align="center">
 
-# 🚀 Local API Tester
+<img src="docs/logo.png" width="120" alt="Postaz logo" onerror="this.style.display='none'"/>
 
-### A blazing-fast, beautiful Postman alternative — built with Python & Qt
+# Postaz
+
+### A modern, beautiful, fully-offline Postman alternative — built with Python &amp; Qt
 
 <br>
 
@@ -14,258 +16,237 @@
 
 <br>
 
-**Send HTTP requests. Organize collections. Test APIs. All locally, all offline, all yours.**
+[![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://kofe.al/goshgarhasanov)
+[![GitHub stars](https://img.shields.io/github/stars/goshgarhasanov/postaz_api_tester?style=for-the-badge&color=7c5cff)](https://github.com/goshgarhasanov/postaz_api_tester/stargazers)
 
 <br>
 
-[Features](#-features) • [Screenshots](#-screenshots) • [Install](#-installation) • [Usage](#-usage) • [Shortcuts](#%EF%B8%8F-keyboard-shortcuts) • [Architecture](#-architecture)
+**Send HTTP requests. Organize collections. Test APIs.**
+**Locally, offline, privately.**
+
+[🇬🇧 English](#-english)  ·  [🇦🇿 Azərbaycanca](#-azərbaycanca)  ·  [🇹🇷 Türkçe](#-türkçe)
 
 </div>
 
 ---
 
-## ✨ Features
+## 🇬🇧 English
 
-<table>
-<tr>
-<td width="50%" valign="top">
+### Why Postaz?
+Postman is great until it asks you to sign in, sync everything to the cloud, throttle your free workspace, or fight you for 800 MB of RAM. Postaz is the opposite: **one binary, one SQLite file, zero cloud, zero telemetry, three languages.**
 
-### 🔥 Powerful Request Builder
-- **All HTTP verbs** — `GET` `POST` `PUT` `PATCH` `DELETE` `HEAD` `OPTIONS`
-- **Query params** with enable/disable toggle per row
-- **Custom headers** editor (table with check-boxes)
-- **Body types** — JSON, raw, url-encoded, none
-- **Format JSON** one-click pretty-printer
-- **Auth presets** — Bearer · Basic · API Key · None
+### ✨ Features
 
-</td>
-<td width="50%" valign="top">
+| | |
+|---|---|
+| 🚀 **Full HTTP** | GET · POST · PUT · PATCH · DELETE · HEAD · OPTIONS |
+| 🔑 **Auth presets** | Bearer · Basic · API Key · None |
+| 📦 **Body editors** | JSON (with pretty-print) · raw · urlencoded |
+| 🌍 **Environments** | `{{baseUrl}}`, `{{token}}` — substituted at send time |
+| 📚 **Collections** | Tree of folders, drag-friendly, context menu |
+| 📜 **History** | Last 200 calls, one-click replay |
+| 🎨 **Themes** | Dark + Light · toggle with `Ctrl+T` |
+| 🌐 **i18n** | English · Azərbaycanca · Türkçe |
+| ⚡ **Threaded HTTP** | UI **never** freezes, animated overlay loader |
+| 🎯 **cURL import** | Paste a `curl ...` command, get a populated request |
+| ✨ **Animations** | Fade-ins, smooth spinners, drop shadows, toast notifications |
+| 🔒 **Privacy** | No accounts, no telemetry, no cloud — your data stays on disk |
 
-### 🎨 Premium UI/UX
-- **Dark + Light** themes — `Ctrl+T` to toggle
-- **Smooth animations** — fades, spinners, overlay loaders
-- **JSON syntax highlighting** in response body
-- **Color-coded status badges** — green 2xx, blue 3xx, orange 4xx, red 5xx
-- **Toast notifications** — non-intrusive feedback
-- **Drop shadows + glow** on primary actions
-
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
-
-### 📚 Collections & Workspaces
-- **Tree-organized** collections in the sidebar
-- **Quick saves** for one-off requests
-- **Rename / delete** via context menu
-- **Live filter** — search across all requests
-- **Per-collection** organization
-
-</td>
-<td width="50%" valign="top">
-
-### 🌍 Environments & Variables
-- **Multiple environments** — dev, staging, prod
-- **`{{variable}}` substitution** anywhere — URLs, headers, body, auth
-- **Active-env indicator** in the status bar
-- **Per-env variable editor** with live persistence
-
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
-
-### 📜 History & Replay
-- **Last 200 requests** auto-saved
-- **One-click replay** — open any past call
-- **Includes the full response snapshot**
-- **Searchable** via the sidebar filter
-- **Clear all** with one menu action
-
-</td>
-<td width="50%" valign="top">
-
-### ⚡ Performance & Safety
-- **Threaded HTTP** via `QThreadPool` — UI **never** freezes
-- **WAL-mode SQLite** for fast, durable writes
-- **Foreign-key cascades** keep data clean
-- **Capped history** — auto-trims to 200
-- **Zero telemetry** — your data stays on your machine
-
-</td>
-</tr>
-</table>
-
----
-
-## 📸 Screenshots
-
-> Add screenshots after running the app — drop `.png` files into `docs/` and reference them here.
-
-```
-┌──────────────────┬──────────────────────────────────────────────┐
-│  Collections     │  GET   ▾  {{baseUrl}}/users/42        [Send] │
-│  ▾ My API        ├──────────────────────────────────────────────┤
-│    GET   /users  │  Params  Headers  Body  Auth                 │
-│    POST  /login  │  ─────────────────────────────────────────   │
-│  History         │  ☑ Authorization  Bearer {{token}}           │
-│    200  /users   │  ☑ Accept         application/json           │
-│    401  /login   ├──────────────────────────────────────────────┤
-│                  │  200 OK  •  ⏱ 142 ms  •  ⇣ 1.2 KB            │
-│                  │  Body  Headers  Raw                          │
-│                  │  {                                           │
-│                  │    "id": 42,                                 │
-│                  │    "name": "Ada Lovelace"                    │
-│                  │  }                                           │
-└──────────────────┴──────────────────────────────────────────────┘
-```
-
----
-
-## 🚀 Installation
-
-### Prerequisites
-- **Python 3.10+** ([download](https://www.python.org/downloads/))
-
-### Quick start (Windows / PowerShell)
-
-```powershell
-git clone https://github.com/<your-user>/local-api-tester.git
-cd local-api-tester
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python main.py
-```
-
-### macOS / Linux
+### 🚀 Installation
 
 ```bash
-git clone https://github.com/<your-user>/local-api-tester.git
-cd local-api-tester
-python3 -m venv .venv
+git clone https://github.com/goshgarhasanov/postaz_api_tester.git
+cd postaz_api_tester
+python -m venv .venv
+# Windows:
+.\.venv\Scripts\Activate.ps1
+# macOS/Linux:
 source .venv/bin/activate
 pip install -r requirements.txt
 python main.py
 ```
 
-### Where is my data stored?
-
-| OS       | Path                                                |
-| -------- | --------------------------------------------------- |
-| Windows  | `%APPDATA%\LocalAPITester\app.db`                   |
-| macOS    | `~/Library/Application Support/LocalAPITester/app.db` |
-| Linux    | `~/.local/share/LocalAPITester/app.db`              |
-
----
-
-## 💡 Usage
-
-### 1️⃣ Send your first request
-- Type a URL into the URL bar — e.g. `https://httpbin.org/get`
-- Press **`Ctrl+Enter`** or click **Send**
-- Watch the response render with status badge, timing, and pretty-printed JSON
-
-### 2️⃣ Save to a collection
-- Click **Save** → choose an existing collection or create a new one
-- The request appears in the sidebar, ready to re-open anytime
-
-### 3️⃣ Use environment variables
-- `Ctrl+E` → **New** → name it `dev`
-- Add variables like `baseUrl` = `https://api.example.com/v1`
-- Click **Set as active**
-- Use `{{baseUrl}}/users` in any request — the variable is substituted at send time
-
-### 4️⃣ Replay from history
-- Switch the sidebar tab to **History**
-- Double-click any past request to load it back into the editor (with its response)
-
----
-
-## ⌨️ Keyboard Shortcuts
+### ⌨️ Keyboard shortcuts
 
 | Action              | Shortcut       |
 | ------------------- | -------------- |
 | Send request        | `Ctrl + Enter` |
-| Save request        | `Ctrl + S`     |
+| Save                | `Ctrl + S`     |
 | New request         | `Ctrl + N`     |
-| Manage environments | `Ctrl + E`     |
-| Toggle dark / light | `Ctrl + T`     |
+| Import cURL         | `Ctrl + I`     |
+| Environments        | `Ctrl + E`     |
+| Toggle theme        | `Ctrl + T`     |
 | Quit                | `Ctrl + Q`     |
 
----
-
-## 🏗️ Architecture
+### 🏗️ Architecture
 
 ```
-api-tester/
-├── main.py                    🟢 Entry point — bootstraps QApplication & DB
+postaz_api_tester/
+├── main.py                       Entry point
 ├── requirements.txt
 └── app/
-    ├── database.py            🗄️  SQLite layer, thread-safe, WAL mode
-    ├── http_client.py         🌐 requests-powered HTTP execution
-    ├── env_resolver.py        🔁 {{var}} substitution engine
-    ├── workers.py             🧵 QRunnable HTTP worker (non-blocking)
+    ├── database.py               SQLite layer (WAL, thread-local conns)
+    ├── http_client.py            requests-powered HTTP execution
+    ├── env_resolver.py           {{var}} substitution engine
+    ├── curl_import.py            cURL → RequestRecord parser
+    ├── workers.py                QRunnable HTTP worker (non-blocking)
+    ├── i18n.py                   EN/AZ/TR translation table
     └── ui/
-        ├── main_window.py     🪟 Top-level shell, menus, splitters, theming
-        ├── sidebar.py         📚 Collections tree + history list
-        ├── request_editor.py  ✏️  Method/URL/Send + Params/Headers/Body/Auth
-        ├── response_viewer.py 📥 Status + body + headers + raw
-        ├── dialogs.py         💬 Save dialog & environment manager
-        ├── widgets.py         🧩 Spinner, Toast, StatusBadge, KVTable, LoaderOverlay
-        ├── animations.py      ✨ Fade, slide, pulse helpers
-        └── styles.py          🎨 Dark + Light QSS themes
+        ├── main_window.py        Top-level shell, menus, splitters
+        ├── sidebar.py            Collections tree + history list
+        ├── request_editor.py     Method/URL + Params/Headers/Body/Auth
+        ├── response_viewer.py    Status + body + headers + raw
+        ├── dialogs.py            Save dialog, environments, About
+        ├── import_dialog.py      cURL paste-and-import surface
+        ├── widgets.py            Spinner, Toast, StatusBadge, KVTable
+        ├── animations.py         Fade, slide, pulse helpers
+        ├── icons.py              Programmatically painted icons + app icon
+        ├── logo.py               Brand wordmark widget
+        └── styles.py             Dark + Light QSS themes
 ```
 
-### Tech stack
-- **[PySide6](https://doc.qt.io/qtforpython-6/)** — Qt6 bindings for Python (LGPL)
-- **[requests](https://docs.python-requests.org/)** — battle-tested HTTP client
-- **[SQLite](https://www.sqlite.org/)** — embedded, zero-config persistence
+### 💖 Support
 
-### Design principles
-- **No blocking on the UI thread** — every HTTP call runs in `QThreadPool`
-- **Modular widgets** — each panel is self-contained and reusable
-- **Stateless workers** — request records flow through, no shared mutable state
-- **Theme via QSS** — no hard-coded colors in widget code
+If Postaz saves you a few seconds every day, consider buying me a coffee — it keeps the project moving.
 
----
+<a href="https://kofe.al/goshgarhasanov">
+  <img src="https://img.shields.io/badge/☕%20Buy%20me%20a%20coffee-kofe.al%2Fgoshgarhasanov-FFDD00?style=for-the-badge&labelColor=2a2c40"/>
+</a>
 
-## 🗺️ Roadmap
+### 📜 License
 
-- [ ] cURL import / export
-- [ ] OpenAPI / Swagger import
-- [ ] Response diff between runs
-- [ ] WebSocket testing
-- [ ] gRPC support
-- [ ] Pre-request scripts (Python sandbox)
-- [ ] Team collections sync (optional cloud)
-- [ ] Drag-and-drop reorder in sidebar
+MIT — see [LICENSE](LICENSE). Built by **[goshgarhasanov](https://github.com/goshgarhasanov)**.
 
 ---
 
-## 🤝 Contributing
+## 🇦🇿 Azərbaycanca
 
-PRs welcome! For larger changes please open an issue first to discuss the approach.
+### Postaz nədir?
+Postman gözəldir — ta ki sizdən qeydiyyat tələb etməyə, hər şeyi buluda sinxronlaşdırmağa, pulsuz workspace-i məhdudlaşdırmağa və 800 MB RAM yeməyə başlayana qədər. **Postaz** isə bunun əksidir: bir tək tətbiq, bir tək SQLite faylı, sıfır bulud, sıfır telemetriya, üç dil dəstəyi.
+
+### ✨ Xüsusiyyətlər
+
+| | |
+|---|---|
+| 🚀 **Tam HTTP** | GET · POST · PUT · PATCH · DELETE · HEAD · OPTIONS |
+| 🔑 **Auth tipləri** | Bearer · Basic · API Açarı · Heç biri |
+| 📦 **Gövdə redaktoru** | JSON (pretty-print ilə) · xam · urlencoded |
+| 🌍 **Mühitlər** | `{{baseUrl}}`, `{{token}}` — sorğu göndərilərkən əvəzlənir |
+| 📚 **Kolleksiyalar** | Qovluq ağacı, kontekst menyusu |
+| 📜 **Tarixçə** | Son 200 sorğu, bir klik ilə yenidən oynat |
+| 🎨 **Mövzular** | Tünd və Açıq · `Ctrl+T` ilə dəyiş |
+| 🌐 **Dillər** | English · Azərbaycanca · Türkçe |
+| ⚡ **Paralel HTTP** | İnterfeys **heç vaxt** donmur, animasiyalı overlay loader |
+| 🎯 **cURL idxalı** | `curl ...` əmrini yapışdırın — hazır sorğu alın |
+| ✨ **Animasiyalar** | Fade keçidlər, hamar spinnerlər, kölgələr, toast bildirişləri |
+| 🔒 **Məxfilik** | Hesab yox, telemetriya yox, bulud yox — datalarınız sizdə qalır |
+
+### 🚀 Quraşdırma
 
 ```bash
-git checkout -b feat/your-feature
-# hack hack hack
-git commit -m "feat: add cURL import"
-git push origin feat/your-feature
+git clone https://github.com/goshgarhasanov/postaz_api_tester.git
+cd postaz_api_tester
+python -m venv .venv
+# Windows:
+.\.venv\Scripts\Activate.ps1
+# macOS/Linux:
+source .venv/bin/activate
+pip install -r requirements.txt
+python main.py
 ```
+
+### ⌨️ Klaviatura qısayolları
+
+| Əməliyyat              | Qısayol        |
+| ---------------------- | -------------- |
+| Sorğunu göndər         | `Ctrl + Enter` |
+| Yadda saxla            | `Ctrl + S`     |
+| Yeni sorğu             | `Ctrl + N`     |
+| cURL idxal et          | `Ctrl + I`     |
+| Mühitlər               | `Ctrl + E`     |
+| Mövzunu dəyiş          | `Ctrl + T`     |
+| Çıxış                  | `Ctrl + Q`     |
+
+### 💖 Dəstək
+
+Əgər Postaz hər gün sizə bir neçə saniyə qənaət edirsə, mənə bir qəhvə ala bilərsiniz — bu, layihənin davam etməsinə kömək edir.
+
+<a href="https://kofe.al/goshgarhasanov">
+  <img src="https://img.shields.io/badge/☕%20Mənə%20bir%20qəhvə%20al-kofe.al%2Fgoshgarhasanov-FFDD00?style=for-the-badge&labelColor=2a2c40"/>
+</a>
+
+### 📜 Lisenziya
+
+MIT — [LICENSE](LICENSE) faylına baxın. Hazırlayıb: **[goshgarhasanov](https://github.com/goshgarhasanov)**.
 
 ---
 
-## 📜 License
+## 🇹🇷 Türkçe
 
-MIT — see [LICENSE](LICENSE).
+### Postaz nedir?
+Postman, sizden kayıt olmanızı isteyene, her şeyi buluta senkronlayana, ücretsiz workspace'i kısıtlayana ve 800 MB RAM yiyene kadar harikadır. **Postaz** ise bunun tam tersi: tek bir uygulama, tek bir SQLite dosyası, sıfır bulut, sıfır telemetri, üç dil desteği.
 
-<br>
+### ✨ Özellikler
+
+| | |
+|---|---|
+| 🚀 **Tüm HTTP** | GET · POST · PUT · PATCH · DELETE · HEAD · OPTIONS |
+| 🔑 **Kimlik doğrulama** | Bearer · Basic · API Anahtarı · Yok |
+| 📦 **Gövde editörü** | JSON (biçimlendirme ile) · ham · urlencoded |
+| 🌍 **Ortamlar** | `{{baseUrl}}`, `{{token}}` — istek sırasında yerine konulur |
+| 📚 **Koleksiyonlar** | Klasör ağacı, sağ tık menüsü |
+| 📜 **Geçmiş** | Son 200 istek, tek tıkla tekrar oynat |
+| 🎨 **Temalar** | Koyu ve Açık · `Ctrl+T` ile değiştir |
+| 🌐 **Diller** | English · Azərbaycanca · Türkçe |
+| ⚡ **İş parçacıklı HTTP** | Arayüz **asla** donmaz, animasyonlu overlay yükleyici |
+| 🎯 **cURL içe aktar** | `curl ...` komutunu yapıştır — hazır istek al |
+| ✨ **Animasyonlar** | Fade geçişler, yumuşak spinnerlar, gölgeler, toast bildirimleri |
+| 🔒 **Gizlilik** | Hesap yok, telemetri yok, bulut yok — verileriniz sizde kalır |
+
+### 🚀 Kurulum
+
+```bash
+git clone https://github.com/goshgarhasanov/postaz_api_tester.git
+cd postaz_api_tester
+python -m venv .venv
+# Windows:
+.\.venv\Scripts\Activate.ps1
+# macOS/Linux:
+source .venv/bin/activate
+pip install -r requirements.txt
+python main.py
+```
+
+### ⌨️ Klavye kısayolları
+
+| İşlem                  | Kısayol        |
+| ---------------------- | -------------- |
+| İsteği gönder          | `Ctrl + Enter` |
+| Kaydet                 | `Ctrl + S`     |
+| Yeni istek             | `Ctrl + N`     |
+| cURL içe aktar         | `Ctrl + I`     |
+| Ortamlar               | `Ctrl + E`     |
+| Temayı değiştir        | `Ctrl + T`     |
+| Çıkış                  | `Ctrl + Q`     |
+
+### 💖 Destek
+
+Postaz her gün size birkaç saniye kazandırıyorsa, bana bir kahve ısmarlayabilirsiniz — projeyi yaşatmama yardımcı olur.
+
+<a href="https://kofe.al/goshgarhasanov">
+  <img src="https://img.shields.io/badge/☕%20Bana%20bir%20kahve%20ısmarla-kofe.al%2Fgoshgarhasanov-FFDD00?style=for-the-badge&labelColor=2a2c40"/>
+</a>
+
+### 📜 Lisans
+
+MIT — [LICENSE](LICENSE) dosyasına bakın. Geliştiren: **[goshgarhasanov](https://github.com/goshgarhasanov)**.
+
+---
 
 <div align="center">
 
-**Built with ❤️ — because sometimes you just want Postman without the bloat.**
+**Built with ❤️ by [goshgarhasanov](https://github.com/goshgarhasanov)**
 
-⭐ **If you find this useful, please star the repo!**
+⭐ **If you find Postaz useful, please star the repo!**
 
 </div>

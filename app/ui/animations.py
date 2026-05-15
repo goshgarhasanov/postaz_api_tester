@@ -1,4 +1,9 @@
-"""Reusable animation helpers."""
+"""Tiny library of animation helpers wrapped around `QPropertyAnimation`.
+
+Each function returns the live animation object so callers can chain or
+cancel it, but already calls `start()` so the common case is one-liner
+ergonomic: `fade_in(my_widget)`. All animations clean themselves up via
+`DeleteWhenStopped`."""
 from __future__ import annotations
 
 from PySide6.QtCore import (

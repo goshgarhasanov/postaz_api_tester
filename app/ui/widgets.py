@@ -1,4 +1,16 @@
-"""Custom widgets: spinner, toast, status badge, animated button."""
+"""Reusable UI building blocks.
+
+Everything here is widget-level — no business logic, no DB. These pieces
+are shared by sidebar / editor / response panels:
+  · `Spinner`        — round arc that rotates while loading
+  · `StatusBadge`    — coloured pill showing HTTP status
+  · `PrimaryButton`  — gradient call-to-action with drop shadow
+  · `GhostButton`    — subtle bordered button for secondary actions
+  · `IconButton`     — square 28×28 toolbar-style icon button
+  · `Toast`          — auto-dismissing floating notification
+  · `KeyValueTable`  — editable rows of `{enabled, key, value, description}`
+  · `LoaderOverlay`  — full-panel translucent loading state
+"""
 from __future__ import annotations
 
 import math
@@ -42,7 +54,11 @@ from .animations import fade_in, fade_out
 
 # ── Spinner ───────────────────────────────────────────────────────────────
 class Spinner(QWidget):
-    """Smooth ring spinner. Animated via QTimer to keep CPU low."""
+    """A smooth circular loading indicator.
+
+    Repaint frequency is a 16 ms QTimer — slow enough not to wake the CPU
+    while idle, fast enough (≈60 fps) to feel modern. Paint with antialiasing
+    on a transparent background so it composites cleanly over any color."""
 
     def __init__(self, parent: QWidget | None = None, size: int = 18, color: str = "#7c5cff"):
         super().__init__(parent)
@@ -87,7 +103,14 @@ class Spinner(QWidget):
 
 # ── Status badge ──────────────────────────────────────────────────────────
 class StatusBadge(QLabel):
-    """Colored pill for HTTP status codes."""
+    """The little coloured pill on the response meta bar.
+
+    Bucket → color rule:
+        2xx → green   (success)
+        3xx → blue    (redirect)
+        4xx → orange  (client error)
+        5xx → red     (server error)
+        net error → red"""
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -221,7 +244,12 @@ from PySide6.QtWidgets import (
 
 
 class KeyValueTable(QTableWidget):
-    """Editable list of {enabled, key, value, description} rows."""
+    """Generic table used for Headers and Query Params.
+
+    Self-managing: the last row is always blank so the user can type into
+    it without clicking a "+" button. As soon as they fill a key in the
+    trailing row, a new blank row spawns below it.
+    Empties (no key AND no value) are filtered out by `get_rows()`."""
 
     changed = Signal()
 
@@ -302,7 +330,11 @@ class KeyValueTable(QTableWidget):
 
 # ── Animated overlay loader ───────────────────────────────────────────────
 class LoaderOverlay(QWidget):
-    """Semi-transparent loader over a widget while a request is in-flight."""
+    """Full-panel dim layer + centred spinner.
+
+    Painted on top of the response viewer while the HTTP worker is busy.
+    Sized to its parent in `resizeEvent` so it always covers the surface
+    no matter how the splitter is dragged."""
 
     def __init__(self, parent: QWidget):
         super().__init__(parent)

@@ -1,4 +1,8 @@
-"""Left sidebar: collections tree + history list, tabbed."""
+"""Left sidebar — the Postaz brand mark plus two stacked panels.
+
+The "Collections" panel is a tree of folders → saved requests.
+The "History" panel is a flat list of the last 200 executed calls.
+Both share one search box that filters by case-insensitive substring."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -26,36 +30,26 @@ from PySide6.QtWidgets import (
 )
 
 from ..database import Database, RequestRecord
+from ..i18n import t, translator
+from .icons import icon_folder, icon_plus
+from .logo import Logo
 from .widgets import IconButton
-
-
-METHOD_COLORS = {
-    "GET": "#3aa86b",
-    "POST": "#e9a83f",
-    "PUT": "#3c8df0",
-    "PATCH": "#a06bff",
-    "DELETE": "#e8556e",
-    "HEAD": "#7c5cff",
-    "OPTIONS": "#7c5cff",
-}
 
 
 def _method_label(method: str) -> str:
     return method.upper()[:6]
 
 
-def _format_timestamp(ts: str) -> str:
-    try:
-        dt = datetime.fromisoformat(ts.replace("Z", ""))
-        return dt.strftime("%H:%M")
-    except Exception:
-        return ts[:5]
-
-
 class Sidebar(QWidget):
-    request_selected = Signal(int)         # request_id
-    history_selected = Signal(int)         # history_id
-    new_request_requested = Signal(int)    # collection_id (or 0)
+    """The left-hand navigation surface.
+
+    Emits high-level intents (open this request / open this history entry /
+    create a new request in this collection) — never mutates the editor
+    directly. `MainWindow` glues the signals together."""
+
+    request_selected = Signal(int)        # user double-clicked a saved request
+    history_selected = Signal(int)        # user double-clicked a history row
+    new_request_requested = Signal(int)   # "New request" was triggered in a collection
 
     def __init__(self, db: Database, parent: QWidget | None = None):
         super().__init__(parent)
@@ -67,10 +61,15 @@ class Sidebar(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        # ─ Header ────────────────────────────────────────────────────────
-        header = QLabel("LOCAL API TESTER")
-        header.setObjectName("sidebarHeader")
-        outer.addWidget(header)
+        # ─ Brand header ──────────────────────────────────────────────────
+        brand_wrap = QFrame()
+        brand_wrap.setObjectName("brandWrap")
+        bl = QHBoxLayout(brand_wrap)
+        bl.setContentsMargins(16, 14, 16, 8)
+        self.logo = Logo(self, height=26)
+        bl.addWidget(self.logo)
+        bl.addStretch()
+        outer.addWidget(brand_wrap)
 
         # ─ Tab bar ───────────────────────────────────────────────────────
         tab_bar = QWidget()
@@ -79,8 +78,8 @@ class Sidebar(QWidget):
         tb_layout.setContentsMargins(12, 4, 12, 8)
         tb_layout.setSpacing(6)
 
-        self.btn_collections = QPushButton("Collections")
-        self.btn_history = QPushButton("History")
+        self.btn_collections = QPushButton(t("Collections"))
+        self.btn_history = QPushButton(t("History"))
         for b in (self.btn_collections, self.btn_history):
             b.setCheckable(True)
             b.setCursor(Qt.PointingHandCursor)
@@ -93,7 +92,9 @@ class Sidebar(QWidget):
         tb_layout.addWidget(self.btn_history)
         tb_layout.addStretch()
 
-        self.btn_add = IconButton("＋", "New collection")
+        self.btn_add = IconButton("", t("New collection"))
+        self.btn_add.setIcon(icon_plus("#c9cce0"))
+        self.btn_add.setIconSize(self.btn_add.iconSize())
         tb_layout.addWidget(self.btn_add)
         outer.addWidget(tab_bar)
 
@@ -102,7 +103,8 @@ class Sidebar(QWidget):
         sl = QHBoxLayout(search_wrap)
         sl.setContentsMargins(12, 0, 12, 8)
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Search…")
+        self.search.setPlaceholderText(t("Search…"))
+        self.search.setClearButtonEnabled(True)
         sl.addWidget(self.search)
         outer.addWidget(search_wrap)
 
@@ -113,6 +115,7 @@ class Sidebar(QWidget):
         self.tree = QTreeWidget()
         self.tree.setObjectName("collectionsTree")
         self.tree.setHeaderHidden(True)
+        self.tree.setIndentation(14)
         self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._on_tree_context)
         self.tree.itemDoubleClicked.connect(self._on_tree_double_click)
@@ -129,7 +132,17 @@ class Sidebar(QWidget):
         self.btn_add.clicked.connect(self._create_collection_dialog)
         self.search.textChanged.connect(self._apply_filter)
 
+        translator.language_changed.connect(self._retranslate)
         self.refresh()
+
+    # ── retranslate ───────────────────────────────────────────────────────
+    def _retranslate(self, _lang: str | None = None) -> None:
+        self.btn_collections.setText(t("Collections"))
+        self.btn_history.setText(t("History"))
+        self.btn_add.setToolTip(t("New collection"))
+        self.search.setPlaceholderText(t("Search…"))
+        self._reload_tree()
+        self._reload_history()
 
     # ── public ────────────────────────────────────────────────────────────
     def refresh(self) -> None:
@@ -147,24 +160,26 @@ class Sidebar(QWidget):
         collections = self.db.list_collections()
         cmap: dict[int, QTreeWidgetItem] = {}
 
-        # build placeholder for un-collected (root) requests
-        loose = QTreeWidgetItem(["Quick Saves"])
+        folder_icon = icon_folder("#a89bff")
+
+        # placeholder for root-level requests
+        loose = QTreeWidgetItem([t("Quick Saves")])
         loose.setData(0, Qt.UserRole, ("collection", 0))
+        loose.setIcon(0, folder_icon)
         f = loose.font(0)
         f.setBold(True)
         loose.setFont(0, f)
         self.tree.addTopLevelItem(loose)
 
-        # first pass: create all nodes
         for col in collections:
             item = QTreeWidgetItem([col.name])
             item.setData(0, Qt.UserRole, ("collection", col.id))
+            item.setIcon(0, folder_icon)
             ff = item.font(0)
             ff.setBold(True)
             item.setFont(0, ff)
             cmap[col.id] = item
 
-        # second pass: attach to parents
         for col in collections:
             item = cmap[col.id]
             if col.parent_id and col.parent_id in cmap:
@@ -172,9 +187,7 @@ class Sidebar(QWidget):
             else:
                 self.tree.addTopLevelItem(item)
 
-        # add requests under their collections
-        loose_requests = self.db.list_requests(None)
-        for r in loose_requests:
+        for r in self.db.list_requests(None):
             self._add_request_item(loose, r)
 
         for col in collections:
@@ -184,12 +197,9 @@ class Sidebar(QWidget):
         self.tree.expandAll()
 
     def _add_request_item(self, parent: QTreeWidgetItem, r: RequestRecord) -> None:
-        item = QTreeWidgetItem([f"  {r.name}"])
+        item = QTreeWidgetItem([f"{_method_label(r.method):<5}  {r.name}"])
         item.setData(0, Qt.UserRole, ("request", r.id))
         item.setToolTip(0, f"{r.method}  {r.url}")
-        # prefix with colored method tag via rich text? QTreeWidget items
-        # don't support HTML directly; fall back to plain text with method.
-        item.setText(0, f"{_method_label(r.method):<5}  {r.name}")
         parent.addChild(item)
 
     def _on_tree_double_click(self, item: QTreeWidgetItem, _col: int) -> None:
@@ -204,34 +214,33 @@ class Sidebar(QWidget):
         item = self.tree.itemAt(pos)
         menu = QMenu(self)
         if item is None:
-            act_new_col = menu.addAction("New collection")
-            act_new_col.triggered.connect(self._create_collection_dialog)
+            menu.addAction(t("New collection")).triggered.connect(self._create_collection_dialog)
         else:
             payload = item.data(0, Qt.UserRole)
             kind, ident = payload if payload else ("", 0)
             if kind == "collection":
-                menu.addAction("New request").triggered.connect(
+                menu.addAction(t("New Request")).triggered.connect(
                     lambda: self.new_request_requested.emit(ident or 0)
                 )
                 if ident:
                     menu.addSeparator()
-                    menu.addAction("Rename collection").triggered.connect(
+                    menu.addAction(t("Rename collection")).triggered.connect(
                         lambda: self._rename_collection(ident)
                     )
-                    menu.addAction("Delete collection").triggered.connect(
+                    menu.addAction(t("Delete collection")).triggered.connect(
                         lambda: self._delete_collection(ident)
                     )
             elif kind == "request":
-                menu.addAction("Open").triggered.connect(
+                menu.addAction(t("Open")).triggered.connect(
                     lambda: self.request_selected.emit(ident)
                 )
                 menu.addSeparator()
-                menu.addAction("Rename").triggered.connect(lambda: self._rename_request(ident))
-                menu.addAction("Delete").triggered.connect(lambda: self._delete_request(ident))
+                menu.addAction(t("Rename")).triggered.connect(lambda: self._rename_request(ident))
+                menu.addAction(t("Delete")).triggered.connect(lambda: self._delete_request(ident))
         menu.exec(self.tree.viewport().mapToGlobal(pos))
 
     def _create_collection_dialog(self) -> None:
-        name, ok = QInputDialog.getText(self, "New Collection", "Collection name:")
+        name, ok = QInputDialog.getText(self, t("New Collection"), t("Collection name:"))
         if ok and name.strip():
             self.db.create_collection(name.strip())
             self._reload_tree()
@@ -241,7 +250,7 @@ class Sidebar(QWidget):
         cur = cols.get(cid)
         if not cur:
             return
-        name, ok = QInputDialog.getText(self, "Rename", "Name:", text=cur.name)
+        name, ok = QInputDialog.getText(self, t("Rename"), t("Name:"), text=cur.name)
         if ok and name.strip():
             self.db.rename_collection(cid, name.strip())
             self._reload_tree()
@@ -249,8 +258,8 @@ class Sidebar(QWidget):
     def _delete_collection(self, cid: int) -> None:
         r = QMessageBox.question(
             self,
-            "Delete collection",
-            "Delete this collection and all its requests?",
+            t("Delete collection"),
+            t("Delete this collection and all its requests?"),
             QMessageBox.Yes | QMessageBox.No,
         )
         if r == QMessageBox.Yes:
@@ -261,7 +270,7 @@ class Sidebar(QWidget):
         rec = self.db.get_request(rid)
         if not rec:
             return
-        name, ok = QInputDialog.getText(self, "Rename", "Name:", text=rec.name)
+        name, ok = QInputDialog.getText(self, t("Rename"), t("Name:"), text=rec.name)
         if ok and name.strip():
             rec.name = name.strip()
             self.db.save_request(rec)
@@ -269,10 +278,7 @@ class Sidebar(QWidget):
 
     def _delete_request(self, rid: int) -> None:
         r = QMessageBox.question(
-            self,
-            "Delete request",
-            "Delete this request?",
-            QMessageBox.Yes | QMessageBox.No,
+            self, t("Delete request"), t("Delete this request?"), QMessageBox.Yes | QMessageBox.No
         )
         if r == QMessageBox.Yes:
             self.db.delete_request(rid)
@@ -286,9 +292,12 @@ class Sidebar(QWidget):
             item = QListWidgetItem(label)
             item.setData(Qt.UserRole, h["id"])
             item.setToolTip(
-                f"Status: {h['status_code']}\n"
-                f"Time: {h['duration_ms']} ms\n"
-                f"At: {h['created_at']}"
+                t(
+                    "Status: {code}\nTime: {ms} ms\nAt: {ts}",
+                    code=h["status_code"],
+                    ms=h["duration_ms"],
+                    ts=h["created_at"],
+                )
             )
             self.history_list.addItem(item)
 
@@ -301,10 +310,10 @@ class Sidebar(QWidget):
     def _apply_filter(self, text: str) -> None:
         needle = text.strip().lower()
 
-        def filter_tree_item(item: QTreeWidgetItem) -> bool:
+        def walk(item: QTreeWidgetItem) -> bool:
             visible_children = False
             for i in range(item.childCount()):
-                if filter_tree_item(item.child(i)):
+                if walk(item.child(i)):
                     visible_children = True
             own = needle in item.text(0).lower()
             show = visible_children or own or not needle
@@ -312,7 +321,7 @@ class Sidebar(QWidget):
             return show
 
         for i in range(self.tree.topLevelItemCount()):
-            filter_tree_item(self.tree.topLevelItem(i))
+            walk(self.tree.topLevelItem(i))
 
         for r in range(self.history_list.count()):
             it = self.history_list.item(r)

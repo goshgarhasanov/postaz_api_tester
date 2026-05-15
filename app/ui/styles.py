@@ -20,6 +20,10 @@ QSplitter::handle:hover { background: #7c5cff; }
     background: #14151f;
     border-right: 1px solid #1f2030;
 }
+#brandWrap {
+    background: transparent;
+    border-bottom: 1px solid #1f2030;
+}
 #sidebarHeader {
     background: transparent;
     color: #a4a7c2;
