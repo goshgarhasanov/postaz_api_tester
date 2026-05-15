@@ -16,14 +16,39 @@ log = get_logger(__name__)
 
 
 def parse_curl(command: str) -> RequestRecord:
-    """Best-effort cURL → RequestRecord. Unknown flags are ignored."""
+    """Best-effort cURL → RequestRecord. Unknown flags are ignored.
+
+    Normalises several flavours of cURL output:
+      * Unix / macOS  — `\\<newline>` line continuations, single-quoted args
+      * Chrome Windows — `^<newline>` continuations, `^"` escaped quotes,
+                          `^^` literal carets. We strip these so shlex can
+                          parse the result with normal POSIX rules.
+      * PowerShell    — backtick line continuations are *not* expected here
+                          (PowerShell wraps native curl differently).
+    """
     cmd = command.strip()
     log.debug("cURL import: %d chars in", len(cmd))
     if not cmd:
         raise ValueError("Empty input")
 
-    # Normalize: collapse line continuations
-    cmd = cmd.replace("\r\n", "\n").replace("\\\n", " ").replace("\n", " ")
+    # 1. Normalise newlines.
+    cmd = cmd.replace("\r\n", "\n")
+    # 2. Unix backslash line continuation: `\<newline>` → space.
+    cmd = cmd.replace("\\\n", " ")
+    # 3. Chrome (Windows) caret continuation: `^<newline>` or `^<space><newline>` → space.
+    cmd = cmd.replace("^\n", " ").replace("^ \n", " ")
+    # 4. Chrome (Windows) caret-escaped quotes: `^"` → `"` so shlex sees real quotes.
+    #    Do this AFTER stripping line continuations, otherwise the `^` that
+    #    actually escapes a quote on the next line gets misread.
+    cmd = cmd.replace('^"', '"')
+    # 5. Double caret means a literal caret — collapse to a single one.
+    cmd = cmd.replace("^^", "^")
+    # 6. Any remaining lone carets (e.g. wrapping the entire body) are noise.
+    cmd = cmd.replace(" ^ ", " ").replace("\t^\t", "\t")
+    # 7. Collapse all remaining newlines into spaces.
+    cmd = cmd.replace("\n", " ")
+    # 8. Collapse runs of whitespace.
+    cmd = " ".join(cmd.split())
 
     try:
         tokens = shlex.split(cmd, posix=True)

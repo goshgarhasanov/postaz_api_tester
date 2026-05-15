@@ -11,6 +11,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
+    QDialog,
     QFileDialog,
     QLabel,
     QMainWindow,
@@ -367,7 +368,7 @@ class MainWindow(QMainWindow):
         rec = self.editor.to_record(self.current_request)
         if rec.id is None:
             dlg = SaveRequestDialog(self.db, default_name=rec.name, parent=self)
-            if dlg.exec() != dlg.Accepted:
+            if dlg.exec() != QDialog.Accepted:
                 return
             name, collection_id = dlg.selected()
             rec.name = name
@@ -383,7 +384,7 @@ class MainWindow(QMainWindow):
         """Open the cURL import dialog and load the parsed result into the editor."""
         log.debug("user opened cURL import dialog")
         dlg = ImportDialog(self)
-        if dlg.exec() != dlg.Accepted or dlg.record is None:
+        if dlg.exec() != QDialog.Accepted or dlg.record is None:
             log.debug("cURL import cancelled / no record")
             return
         log.info("cURL imported into editor: %s %s", dlg.record.method, dlg.record.url)
