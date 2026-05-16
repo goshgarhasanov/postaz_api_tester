@@ -28,6 +28,16 @@
 
 ![Postaz screenshot](docs/postaz-v2.png)
 
+<br>
+
+### ⬇️ Download for Windows
+
+[![Download Postaz](https://img.shields.io/badge/Download%20Postaz-Setup%20.exe-FF6C37?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/goshgarhasanov/postaz_api_tester/releases/latest/download/Postaz-Setup-2.0.0.exe)
+
+**[Latest release on GitHub →](https://github.com/goshgarhasanov/postaz_api_tester/releases/latest)**
+
+Download `Postaz-Setup-2.0.0.exe`, double-click, click **Next → Next → Finish**. Postaz lives in `%LOCALAPPDATA%\Programs\Postaz` (no admin rights required) and adds a Start Menu shortcut.
+
 </div>
 
 ---

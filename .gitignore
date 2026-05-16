@@ -41,3 +41,10 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Build artefacts (kept out of git; users grab the installer from Releases)
+build/dist/
+build/pyinstaller-work/
+build/postaz.ico
+installer/dist/
+*.spec.bak
