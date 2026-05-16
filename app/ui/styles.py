@@ -68,6 +68,27 @@ QToolButton#langButton:hover {
 }
 QToolButton#langButton::menu-indicator { width: 0; height: 0; image: none; }
 
+QPushButton#curlButton {
+    background: rgba(124, 92, 255, 0.10);
+    color: #c2b8ff;
+    border: 1px solid rgba(124, 92, 255, 0.28);
+    border-radius: 14px;
+    padding: 4px 12px;
+    font-family: "JetBrains Mono", "Consolas", "Courier New";
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    min-height: 22px;
+}
+QPushButton#curlButton:hover {
+    background: rgba(124, 92, 255, 0.22);
+    border-color: #7c5cff;
+    color: #ffffff;
+}
+QPushButton#curlButton:pressed {
+    background: rgba(124, 92, 255, 0.30);
+}
+
 #sidebarTabBar QPushButton {
     background: transparent;
     color: #7e8299;

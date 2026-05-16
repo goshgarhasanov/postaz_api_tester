@@ -212,8 +212,11 @@ class Sidebar(QWidget):
 
         # Import cURL button — sits right next to the "+" so users can paste a
         # curl command into the sidebar without hunting through the File menu.
-        self.btn_import = IconButton("", self._tr_import_tip())
-        self.btn_import.setIcon(icon_import("#c9cce0"))
+        # Text-on-pill style ("curl +") is more discoverable than a bare icon.
+        self.btn_import = QPushButton("curl +")
+        self.btn_import.setObjectName("curlButton")
+        self.btn_import.setCursor(Qt.PointingHandCursor)
+        self.btn_import.setToolTip(self._tr_import_tip())
         tb_layout.addWidget(self.btn_import)
 
         self.btn_add = IconButton("", t("New collection"))
