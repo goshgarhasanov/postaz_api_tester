@@ -56,14 +56,15 @@ def _method_label(method: str) -> str:
 
 
 # Method → soft brand color used by the sidebar delegate badge.
+# Matches the Postman desktop client's method colour palette.
 _METHOD_COLORS = {
-    "GET":     ("#1f3a2c", "#5ed29b"),
-    "POST":    ("#3d2f1c", "#f4b860"),
-    "PUT":     ("#1f3245", "#6fb8ff"),
-    "PATCH":   ("#2f2348", "#bda6ff"),
-    "DELETE":  ("#3a1f24", "#ff8090"),
-    "HEAD":    ("#262842", "#a89bff"),
-    "OPTIONS": ("#262842", "#a89bff"),
+    "GET":     ("#1F3A2F", "#6BBE7B"),
+    "POST":    ("#3D2F1C", "#FFB400"),
+    "PUT":     ("#243245", "#66B5F5"),
+    "PATCH":   ("#2F2348", "#C792EA"),
+    "DELETE":  ("#3A1F24", "#F45B69"),
+    "HEAD":    ("#1F3838", "#80CBC4"),
+    "OPTIONS": ("#1F3838", "#80CBC4"),
 }
 
 
@@ -106,13 +107,13 @@ class _SidebarDelegate(QStyledItemDelegate):
     def _paint_background(self, painter: QPainter, opt: QStyleOptionViewItem) -> None:
         rect = opt.rect
         if opt.state & QStyle.State_Selected:
-            painter.setBrush(QColor("#25254a"))
+            painter.setBrush(QColor("#3A3A3A"))
             painter.setPen(Qt.NoPen)
-            painter.drawRoundedRect(rect.adjusted(2, 1, -2, -1), 8, 8)
+            painter.drawRoundedRect(rect.adjusted(2, 1, -2, -1), 6, 6)
         elif opt.state & QStyle.State_MouseOver:
-            painter.setBrush(QColor("#1a1c2e"))
+            painter.setBrush(QColor("#2A2A2A"))
             painter.setPen(Qt.NoPen)
-            painter.drawRoundedRect(rect.adjusted(2, 1, -2, -1), 8, 8)
+            painter.drawRoundedRect(rect.adjusted(2, 1, -2, -1), 6, 6)
 
     # ── request row ──────────────────────────────────────────────────
     def _paint_request(self, painter, option, index, payload) -> None:
@@ -146,7 +147,7 @@ class _SidebarDelegate(QStyledItemDelegate):
         text_x = bx + badge_w + 10
         right_inset = TRASH_ZONE_W if (opt.state & QStyle.State_MouseOver) else 6
         text_rect = QRectF(text_x, rect.y(), rect.width() - text_x - right_inset, rect.height())
-        text_color = QColor("#e6e8f5") if opt.state & (QStyle.State_Selected | QStyle.State_MouseOver) else QColor("#b6bad0")
+        text_color = QColor("#FFFFFF") if opt.state & (QStyle.State_Selected | QStyle.State_MouseOver) else QColor("#C7C7C7")
         painter.setPen(text_color)
         font = QFont(option.font)
         font.setPointSizeF(9.5)
@@ -171,7 +172,7 @@ class _SidebarDelegate(QStyledItemDelegate):
         painter.setRenderHint(QPainter.Antialiasing, True)
         self._paint_background(painter, opt)
 
-        # folder glyph — purple-tinted rounded rect with a small tab
+        # folder glyph — orange-tinted rounded rect with a small tab (Postman vibe)
         glyph_size = 16
         gx = rect.x() + 8
         gy = rect.y() + (rect.height() - glyph_size) / 2
@@ -183,8 +184,8 @@ class _SidebarDelegate(QStyledItemDelegate):
         path.lineTo(gx + glyph_size, gy + glyph_size)
         path.lineTo(gx, gy + glyph_size)
         path.closeSubpath()
-        painter.setBrush(QColor("#3a2f60"))
-        painter.setPen(QPen(QColor("#a89bff"), 1.3))
+        painter.setBrush(QColor("#3D2418"))
+        painter.setPen(QPen(QColor("#FF8557"), 1.3))
         painter.drawPath(path)
 
         # collection name
@@ -196,7 +197,7 @@ class _SidebarDelegate(QStyledItemDelegate):
         font.setBold(True)
         font.setLetterSpacing(QFont.AbsoluteSpacing, 0.2)
         painter.setFont(font)
-        painter.setPen(QColor("#ffffff") if opt.state & QStyle.State_MouseOver else QColor("#dcdfee"))
+        painter.setPen(QColor("#FFFFFF") if opt.state & QStyle.State_MouseOver else QColor("#E1E1E1"))
         painter.drawText(text_rect, Qt.AlignVCenter | Qt.AlignLeft, name)
 
         # trash icon on hover — never on the Quick Saves pseudo-collection
@@ -210,7 +211,7 @@ class _SidebarDelegate(QStyledItemDelegate):
         size = 14
         x = row_rect.right() - 10 - size
         y = row_rect.y() + (row_rect.height() - size) / 2
-        pen = QPen(QColor("#ff8090"))
+        pen = QPen(QColor("#F45B69"))
         pen.setWidthF(1.4)
         pen.setCapStyle(Qt.RoundCap)
         pen.setJoinStyle(Qt.RoundJoin)
@@ -281,7 +282,7 @@ class Sidebar(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        # ─ Brand header (logo + language picker) ─────────────────────────
+        # ─ Brand header (logo only — language picker lives in the menu bar) ─
         brand_wrap = QFrame()
         brand_wrap.setObjectName("brandWrap")
         bl = QHBoxLayout(brand_wrap)
@@ -290,29 +291,6 @@ class Sidebar(QWidget):
         self.logo = Logo(self, height=26)
         bl.addWidget(self.logo)
         bl.addStretch()
-
-        # Always-visible language chip — opens a popup menu with EN/AZ/TR
-        self.lang_btn = QToolButton()
-        self.lang_btn.setObjectName("langButton")
-        self.lang_btn.setCursor(Qt.PointingHandCursor)
-        self.lang_btn.setIcon(icon_globe("#a89bff"))
-        self.lang_btn.setPopupMode(QToolButton.InstantPopup)
-        self.lang_btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-        self.lang_btn.setText(translator.language.upper())
-        lang_menu = QMenu(self.lang_btn)
-        self._lang_actions: dict[str, QAction] = {}
-        group = QActionGroup(self)
-        group.setExclusive(True)
-        for code in LANGUAGES:
-            act = QAction(LANGUAGE_LABELS[code], self.lang_btn)
-            act.setCheckable(True)
-            act.setChecked(code == translator.language)
-            act.triggered.connect(lambda _c=False, lc=code: self._switch_language(lc))
-            group.addAction(act)
-            lang_menu.addAction(act)
-            self._lang_actions[code] = act
-        self.lang_btn.setMenu(lang_menu)
-        bl.addWidget(self.lang_btn)
         outer.addWidget(brand_wrap)
 
         # ─ Tab bar ───────────────────────────────────────────────────────
@@ -450,9 +428,6 @@ class Sidebar(QWidget):
         if hasattr(self, "btn_clear_history"):
             self.btn_clear_history.setText(self._tr_clear_history())
         self.search.setPlaceholderText(t("Search…"))
-        self.lang_btn.setText(translator.language.upper())
-        for code, act in self._lang_actions.items():
-            act.setChecked(code == translator.language)
         self._reload_tree()
         self._reload_history()
 

@@ -60,7 +60,7 @@ class Spinner(QWidget):
     while idle, fast enough (≈60 fps) to feel modern. Paint with antialiasing
     on a transparent background so it composites cleanly over any color."""
 
-    def __init__(self, parent: QWidget | None = None, size: int = 18, color: str = "#7c5cff"):
+    def __init__(self, parent: QWidget | None = None, size: int = 18, color: str = "#FF6C37"):
         super().__init__(parent)
         self._size = size
         self._color = QColor(color)
@@ -122,25 +122,25 @@ class StatusBadge(QLabel):
 
     def clear_status(self) -> None:
         self.setText("—")
-        self._apply("#3a3a48", "#bdbdcc")
+        self._apply("#3A3A3A", "#A0A0A0")
 
     def set_status(self, code: int, reason: str = "") -> None:
         text = f"{code} {reason}".strip()
         self.setText(text)
         if 200 <= code < 300:
-            self._apply("#1e3a2f", "#5ed29b")
+            self._apply("#1F3A2F", "#6BBE7B")
         elif 300 <= code < 400:
-            self._apply("#243245", "#6fb8ff")
+            self._apply("#243245", "#66B5F5")
         elif 400 <= code < 500:
-            self._apply("#3d2f1c", "#f4b860")
+            self._apply("#3D2F1C", "#FFB400")
         elif code >= 500:
-            self._apply("#3a1f24", "#ff6e7c")
+            self._apply("#3A1F24", "#F45B69")
         else:
-            self._apply("#3a3a48", "#bdbdcc")
+            self._apply("#3A3A3A", "#A0A0A0")
 
     def set_error(self) -> None:
         self.setText("ERROR")
-        self._apply("#3a1f24", "#ff6e7c")
+        self._apply("#3A1F24", "#F45B69")
 
     def _apply(self, bg: str, fg: str) -> None:
         self.setStyleSheet(
@@ -162,9 +162,9 @@ class PrimaryButton(QPushButton):
         self.setObjectName("primaryButton")
         self.setMinimumHeight(44)
         shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(28)
-        shadow.setOffset(0, 8)
-        shadow.setColor(QColor(124, 92, 255, 130))
+        shadow.setBlurRadius(24)
+        shadow.setOffset(0, 6)
+        shadow.setColor(QColor(255, 108, 55, 120))
         self.setGraphicsEffect(shadow)
 
 
@@ -352,14 +352,14 @@ class LoaderOverlay(QWidget):
     def __init__(self, parent: QWidget):
         super().__init__(parent)
         self.setAttribute(Qt.WA_StyledBackground, True)
-        self.setStyleSheet("background: rgba(15, 16, 26, 130);")
+        self.setStyleSheet("background: rgba(20, 20, 20, 150);")
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
-        self.spinner = Spinner(self, size=42, color="#7c5cff")
+        self.spinner = Spinner(self, size=42, color="#FF6C37")
         self.spinner.setFixedSize(42, 42)
         self.label = QLabel("Sending request…")
         self.label.setAlignment(Qt.AlignCenter)
-        self.label.setStyleSheet("color: #d8dcff; font-size: 13px; margin-top: 14px;")
+        self.label.setStyleSheet("color: #E1E1E1; font-size: 13px; margin-top: 14px;")
         layout.addWidget(self.spinner, alignment=Qt.AlignCenter)
         layout.addWidget(self.label)
         self.hide()

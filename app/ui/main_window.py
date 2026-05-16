@@ -9,21 +9,24 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtGui import QAction, QActionGroup, QKeySequence
 from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
+    QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QSplitter,
     QStatusBar,
+    QToolButton,
     QWidget,
 )
 
 from ..database import Database, RequestRecord
 from ..http_client import ResponseData
-from ..i18n import t, translator
+from ..i18n import LANGUAGE_LABELS, LANGUAGES, set_language, t, translator
 from ..logger import get_logger
 from ..workers import submit
 from .console_panel import ConsolePanel
@@ -113,6 +116,7 @@ class MainWindow(QMainWindow):
         self._actions: dict[str, QAction] = {}
         self._menus: dict[str, "object"] = {}
         self._build_menu()
+        self._build_language_corner()
         self._build_status()
 
         # ── signals ──────────────────────────────────────────────
@@ -294,6 +298,52 @@ class MainWindow(QMainWindow):
         # status + env label
         self._update_env_label()
 
+    def _build_language_corner(self) -> None:
+        """Top-right language picker, mounted on the menu bar's corner widget.
+
+        Sits where the window controls live on most platforms — natural home
+        for a global app preference like language."""
+        from .icons import icon_globe
+
+        wrap = QWidget()
+        wrap.setObjectName("langCornerWrap")
+        layout = QHBoxLayout(wrap)
+        layout.setContentsMargins(0, 0, 12, 0)
+        layout.setSpacing(0)
+
+        self.lang_btn = QToolButton()
+        self.lang_btn.setObjectName("langButton")
+        self.lang_btn.setCursor(Qt.PointingHandCursor)
+        self.lang_btn.setIcon(icon_globe("#a89bff"))
+        self.lang_btn.setPopupMode(QToolButton.InstantPopup)
+        self.lang_btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self.lang_btn.setText(translator.language.upper())
+
+        menu = QMenu(self.lang_btn)
+        self._lang_actions: dict[str, QAction] = {}
+        group = QActionGroup(self)
+        group.setExclusive(True)
+        for code in LANGUAGES:
+            act = QAction(LANGUAGE_LABELS[code], self.lang_btn)
+            act.setCheckable(True)
+            act.setChecked(code == translator.language)
+            act.triggered.connect(lambda _c=False, lc=code: self._switch_language(lc))
+            group.addAction(act)
+            menu.addAction(act)
+            self._lang_actions[code] = act
+        self.lang_btn.setMenu(menu)
+
+        layout.addWidget(self.lang_btn)
+        self.menuBar().setCornerWidget(wrap, Qt.TopRightCorner)
+
+    def _switch_language(self, code: str) -> None:
+        """Apply the chosen language live and persist it for next launch."""
+        set_language(code)
+        self.db.set_setting("language", code)
+        self.lang_btn.setText(code.upper())
+        for c, act in self._lang_actions.items():
+            act.setChecked(c == code)
+
     def _build_status(self) -> None:
         bar = QStatusBar()
         self.env_label = QLabel(t("No environment"))
@@ -394,8 +444,8 @@ class MainWindow(QMainWindow):
         self.editor.set_sending(False)
         self.response.show_response(resp)
         rec = self.current_request
-        # Push to the Postman-style console drawer (live tail of recent calls).
-        self.console.push(rec.method, rec.url, resp)
+        # Push the full snapshot to the Postman-style console drawer.
+        self.console.push(rec, resp)
         snapshot = {
             "request": {
                 "method": rec.method,

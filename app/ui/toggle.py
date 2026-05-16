@@ -27,12 +27,12 @@ class ToggleSwitch(QAbstractButton):
     toggled_now = Signal(bool)
 
     # tunable visuals
-    _TRACK_OFF       = QColor("#2a2c40")
-    _TRACK_OFF_HOVER = QColor("#3a3c55")
-    _TRACK_ON        = QColor("#7c5cff")
-    _TRACK_ON_HOVER  = QColor("#8d70ff")
-    _THUMB           = QColor("#ffffff")
-    _FOCUS_RING      = QColor(124, 92, 255, 90)
+    _TRACK_OFF       = QColor("#3A3A3A")
+    _TRACK_OFF_HOVER = QColor("#4A4A4A")
+    _TRACK_ON        = QColor("#FF6C37")
+    _TRACK_ON_HOVER  = QColor("#FF8557")
+    _THUMB           = QColor("#FFFFFF")
+    _FOCUS_RING      = QColor(255, 108, 55, 90)
 
     def __init__(self, checked: bool = False, parent=None, width: int = 38, height: int = 22):
         super().__init__(parent)

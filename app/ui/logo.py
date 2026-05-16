@@ -35,8 +35,8 @@ class Logo(QWidget):
         # ── mark (rounded square + paper plane) ───────────────
         rect = QRectF(2, 2, s, s)
         grad = QLinearGradient(rect.topLeft(), rect.bottomRight())
-        grad.setColorAt(0.0, QColor("#8d70ff"))
-        grad.setColorAt(1.0, QColor("#5a3fd9"))
+        grad.setColorAt(0.0, QColor("#FF8557"))
+        grad.setColorAt(1.0, QColor("#E55A2B"))
         p.setBrush(QBrush(grad))
         p.setPen(Qt.NoPen)
         p.drawRoundedRect(rect, s * 0.24, s * 0.24)
@@ -54,10 +54,10 @@ class Logo(QWidget):
 
         # ── wordmark ──────────────────────────────────────────
         p.setBrush(Qt.NoBrush)
-        # primary purple → light gradient for the text
+        # orange → light gradient for the wordmark
         text_grad = QLinearGradient(s + 12, 0, s + 130, 0)
-        text_grad.setColorAt(0.0, QColor("#a89bff"))
-        text_grad.setColorAt(1.0, QColor("#e6e8f5"))
+        text_grad.setColorAt(0.0, QColor("#FF8557"))
+        text_grad.setColorAt(1.0, QColor("#FFFFFF"))
         pen = QPen(QBrush(text_grad), 1)
         p.setPen(pen)
 

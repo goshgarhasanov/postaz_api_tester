@@ -75,7 +75,7 @@ class RequestEditor(QWidget):
         self.btn_save.setIcon(icon_save("#c9cce0"))
         self.btn_save.clicked.connect(self.save_requested.emit)
 
-        self.inflight_spinner = Spinner(self, size=16, color="#7c5cff")
+        self.inflight_spinner = Spinner(self, size=16, color="#FF6C37")
 
         top_layout.addWidget(self.method)
         top_layout.addWidget(self.url, 1)
@@ -93,7 +93,7 @@ class RequestEditor(QWidget):
         self.name_edit.setPlaceholderText(t("Untitled request"))
         self.name_edit.setStyleSheet(
             "QLineEdit { background: transparent; border: none; padding: 2px 0; "
-            "font-size: 14px; font-weight: 600; color: #e6e8f5; }"
+            "font-size: 14px; font-weight: 600; color: #FFFFFF; }"
             "QLineEdit:focus { border-bottom: 1px solid #7c5cff; }"
         )
         nl.addWidget(self.name_edit)

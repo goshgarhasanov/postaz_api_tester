@@ -47,11 +47,12 @@ class JsonHighlighter(QSyntaxHighlighter):
                 f.setFontWeight(QFont.DemiBold)
             return f
 
-        self.rules.append((QRegularExpression(r'"(?:[^"\\]|\\.)*"\s*:'), fmt("#7c9eff", True)))
-        self.rules.append((QRegularExpression(r'"(?:[^"\\]|\\.)*"'), fmt("#7fe6b3")))
-        self.rules.append((QRegularExpression(r"\b-?\d+(\.\d+)?([eE][+-]?\d+)?\b"), fmt("#f5b86c")))
-        self.rules.append((QRegularExpression(r"\b(true|false|null)\b"), fmt("#ff8090", True)))
-        self.rules.append((QRegularExpression(r"[\{\}\[\],:]"), fmt("#8b8fab")))
+        # Postman-inspired JSON colors on a dark surface.
+        self.rules.append((QRegularExpression(r'"(?:[^"\\]|\\.)*"\s*:'), fmt("#66B5F5", True)))
+        self.rules.append((QRegularExpression(r'"(?:[^"\\]|\\.)*"'), fmt("#6BBE7B")))
+        self.rules.append((QRegularExpression(r"\b-?\d+(\.\d+)?([eE][+-]?\d+)?\b"), fmt("#FFB400")))
+        self.rules.append((QRegularExpression(r"\b(true|false|null)\b"), fmt("#F45B69", True)))
+        self.rules.append((QRegularExpression(r"[\{\}\[\],:]"), fmt("#A0A0A0")))
 
     def highlightBlock(self, text: str) -> None:
         for rx, fmt_ in self.rules:
