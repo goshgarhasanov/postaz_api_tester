@@ -106,6 +106,7 @@ class MainWindow(QMainWindow):
         self.sidebar.request_selected.connect(self.open_request)
         self.sidebar.history_selected.connect(self.open_history)
         self.sidebar.new_request_requested.connect(self.new_request_in_collection)
+        self.sidebar.import_curl_requested.connect(self.open_import)
 
         # ── theme (dark only) ────────────────────────────────────
         self.setStyleSheet(DARK)

@@ -176,6 +176,16 @@ def _export(p: QPainter, s: int, _c: str) -> None:
     p.drawLine(int(s * 0.78), int(s * 0.78), int(s * 0.78), int(s * 0.60))
 
 
+def _import(p: QPainter, s: int, _c: str) -> None:
+    # arrow pointing down INTO a tray (mirror of _export)
+    p.drawLine(int(s * 0.50), int(s * 0.20), int(s * 0.50), int(s * 0.55))
+    p.drawLine(int(s * 0.50), int(s * 0.55), int(s * 0.38), int(s * 0.42))
+    p.drawLine(int(s * 0.50), int(s * 0.55), int(s * 0.62), int(s * 0.42))
+    p.drawLine(int(s * 0.22), int(s * 0.60), int(s * 0.22), int(s * 0.78))
+    p.drawLine(int(s * 0.22), int(s * 0.78), int(s * 0.78), int(s * 0.78))
+    p.drawLine(int(s * 0.78), int(s * 0.78), int(s * 0.78), int(s * 0.60))
+
+
 def _power(p: QPainter, s: int, _c: str) -> None:
     p.drawArc(QRectF(s * 0.22, s * 0.22, s * 0.56, s * 0.56), 70 * 16, 320 * 16)
     p.drawLine(int(s / 2), int(s * 0.18), int(s / 2), int(s * 0.45))
@@ -202,6 +212,7 @@ def icon_info(color: str = "#c9cce0") -> QIcon:        return _icon(_info, color
 def icon_chevron(color: str = "#c9cce0") -> QIcon:     return _icon(_chevron_down, color=color)
 def icon_close(color: str = "#c9cce0") -> QIcon:       return _icon(_close, color=color)
 def icon_export(color: str = "#c9cce0") -> QIcon:      return _icon(_export, color=color)
+def icon_import(color: str = "#c9cce0") -> QIcon:      return _icon(_import, color=color)
 def icon_power(color: str = "#c9cce0") -> QIcon:       return _icon(_power, color=color)
 def icon_copy(color: str = "#c9cce0") -> QIcon:        return _icon(_copy, color=color)
 

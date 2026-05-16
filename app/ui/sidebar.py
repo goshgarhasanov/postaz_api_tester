@@ -44,7 +44,7 @@ from PySide6.QtWidgets import (
 
 from ..database import Database, RequestRecord
 from ..i18n import LANGUAGE_LABELS, LANGUAGES, set_language, t, translator
-from .icons import icon_folder, icon_globe, icon_plus
+from .icons import icon_folder, icon_globe, icon_import, icon_plus
 from .logo import Logo
 from .widgets import IconButton
 
@@ -142,6 +142,7 @@ class Sidebar(QWidget):
     request_selected = Signal(int)        # user double-clicked a saved request
     history_selected = Signal(int)        # user double-clicked a history row
     new_request_requested = Signal(int)   # "New request" was triggered in a collection
+    import_curl_requested = Signal()      # toolbar "Import cURL" button clicked
 
     def __init__(self, db: Database, parent: QWidget | None = None):
         super().__init__(parent)
@@ -209,6 +210,12 @@ class Sidebar(QWidget):
         tb_layout.addWidget(self.btn_history)
         tb_layout.addStretch()
 
+        # Import cURL button — sits right next to the "+" so users can paste a
+        # curl command into the sidebar without hunting through the File menu.
+        self.btn_import = IconButton("", self._tr_import_tip())
+        self.btn_import.setIcon(icon_import("#c9cce0"))
+        tb_layout.addWidget(self.btn_import)
+
         self.btn_add = IconButton("", t("New collection"))
         self.btn_add.setIcon(icon_plus("#c9cce0"))
         self.btn_add.setIconSize(self.btn_add.iconSize())
@@ -251,16 +258,25 @@ class Sidebar(QWidget):
         self.btn_collections.clicked.connect(lambda: self._switch(0))
         self.btn_history.clicked.connect(lambda: self._switch(1))
         self.btn_add.clicked.connect(self._create_collection_dialog)
+        self.btn_import.clicked.connect(self.import_curl_requested.emit)
         self.search.textChanged.connect(self._apply_filter)
 
         translator.language_changed.connect(self._retranslate)
         self.refresh()
 
     # ── retranslate ───────────────────────────────────────────────────────
+    def _tr_import_tip(self) -> str:
+        return {
+            "en": "Import cURL  (Ctrl+I)",
+            "az": "cURL idxal et  (Ctrl+I)",
+            "tr": "cURL içe aktar  (Ctrl+I)",
+        }[translator.language]
+
     def _retranslate(self, _lang: str | None = None) -> None:
         self.btn_collections.setText(t("Collections"))
         self.btn_history.setText(t("History"))
         self.btn_add.setToolTip(t("New collection"))
+        self.btn_import.setToolTip(self._tr_import_tip())
         self.search.setPlaceholderText(t("Search…"))
         self.lang_btn.setText(translator.language.upper())
         for code, act in self._lang_actions.items():
