@@ -4,6 +4,17 @@ All notable changes to **Postaz** are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/) and the
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.0.1] — 2026-05-16
+
+### Fixed
+- **Installer crash** at the "Creating shortcuts…" step. The previous
+  installer tried to drop the desktop shortcut into
+  `C:\Users\Public\Desktop` which requires admin rights and clashed with
+  the per-user install. Now writes to the current user's Desktop via
+  `{autodesktop}` (no admin prompt, no `0x80070005`).
+- Dropped the obsolete `WizardResizable` and `OnlyBelowVersion=6.1`
+  directives that Inno Setup 6 flagged with warnings.
+
 ## [2.0.0] — 2026-05-16
 
 > Major visual + feature overhaul. Postaz now looks and feels like a

@@ -32,13 +32,13 @@
 
 ### ⬇️ Download for Windows
 
-[![Download Postaz](https://img.shields.io/badge/Download%20Postaz-Setup%20.exe-FF6C37?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/goshgarhasanov/postaz_api_tester/releases/latest/download/Postaz-Setup-2.0.0.exe)
+[![Download Postaz](https://img.shields.io/badge/Download%20Postaz-Setup%20.exe-FF6C37?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/goshgarhasanov/postaz_api_tester/releases/latest/download/Postaz-Setup-2.0.1.exe)
 
 **[Latest release on GitHub →](https://github.com/goshgarhasanov/postaz_api_tester/releases/latest)**
 
-Download `Postaz-Setup-2.0.0.exe`, double-click, click **Next → Next → Finish**. Postaz installs to `%LOCALAPPDATA%\Programs\Postaz` (no admin rights required) and adds a Start Menu shortcut.
+Download `Postaz-Setup-2.0.1.exe`, double-click, click **Next → Next → Finish**. Postaz installs to `%LOCALAPPDATA%\Programs\Postaz` (no admin rights required) and adds a Start Menu shortcut.
 
-**SHA-256:** `06A4E7FC3D75D797EF209AAC001E4AEC6B11863BED54FD9C24EA40535E314278`
+**SHA-256:** `F2E36F82C3AFF6FB9FE12334712EDF14600D5AD7A4DE6B4D32A82F81937745E0`
 
 #### ⚠️ "Windows protected your PC" (SmartScreen) warning
 
@@ -51,7 +51,7 @@ To run it:
 
 If you'd rather verify before running, compare the SHA-256 above with:
 ```powershell
-Get-FileHash .\Postaz-Setup-2.0.0.exe -Algorithm SHA256
+Get-FileHash .\Postaz-Setup-2.0.1.exe -Algorithm SHA256
 ```
 
 </div>

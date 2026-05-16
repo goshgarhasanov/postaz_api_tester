@@ -11,7 +11,7 @@
 ; or via the build runner:  build\build_installer.ps1
 
 #define MyAppName        "Postaz"
-#define MyAppVersion     "2.0.0"
+#define MyAppVersion     "2.0.1"
 #define MyAppPublisher   "goshgarhasanov"
 #define MyAppURL         "https://github.com/goshgarhasanov/postaz_api_tester"
 #define MyAppExeName     "Postaz.exe"
@@ -42,7 +42,6 @@ SetupIconFile=..\build\postaz.ico
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-WizardResizable=no
 ShowLanguageDialog=auto
 UninstallDisplayIcon={app}\{#MyAppExeName}
 UninstallDisplayName={#MyAppName} {#MyAppVersion}
@@ -59,7 +58,6 @@ Name: "turkish"; MessagesFile: "compiler:Languages\Turkish.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1
 
 [Files]
 ; Copy the entire PyInstaller bundle. * recurses; createallsubdirs preserves the tree.
@@ -68,7 +66,9 @@ Source: "..\build\dist\Postaz\*"; DestDir: "{app}"; Flags: ignoreversion recurse
 [Icons]
 Name: "{group}\{#MyAppName}";           Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
-Name: "{commondesktop}\{#MyAppName}";   Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+; Per-user desktop — writing to {commondesktop} (C:\Users\Public\Desktop)
+; requires admin, which conflicts with PrivilegesRequired=lowest.
+Name: "{autodesktop}\{#MyAppName}";     Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
 ; Launch Postaz right after install if the user keeps the checkbox ticked.
