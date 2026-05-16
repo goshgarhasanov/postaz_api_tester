@@ -443,12 +443,8 @@ class Sidebar(QWidget):
         self._reload_history()
 
     def _switch(self, idx: int) -> None:
-        """Smooth fade between Collections and History panels."""
-        from .animations import fade_in
+        """Toggle between the Collections tree and the History list."""
         self.stack.setCurrentIndex(idx)
-        widget = self.stack.currentWidget()
-        if widget:
-            fade_in(widget, 180)
         if idx == 1:
             self._reload_history()
 

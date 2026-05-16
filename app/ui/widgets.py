@@ -152,20 +152,16 @@ class StatusBadge(QLabel):
 class PrimaryButton(QPushButton):
     """Brand call-to-action button.
 
-    Gradient fill (purple → deep purple), bold uppercase-ish weight, and a
-    soft brand-coloured drop shadow so it feels like it's lifting off the
-    surface. Disabled state in QSS turns the shadow visually-flat."""
+    Solid orange fill, bold weight. We previously had a QGraphicsDropShadowEffect
+    here for a 'lifted' feel, but it caused noticeable repaint flicker during
+    splitter drags on Windows — the effect re-renders every frame the button
+    is touched by the redraw region. The flat look is plenty crisp without it."""
 
     def __init__(self, text: str = "", parent: QWidget | None = None):
         super().__init__(text, parent)
         self.setCursor(Qt.PointingHandCursor)
         self.setObjectName("primaryButton")
         self.setMinimumHeight(44)
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(24)
-        shadow.setOffset(0, 6)
-        shadow.setColor(QColor(255, 108, 55, 120))
-        self.setGraphicsEffect(shadow)
 
 
 class GhostButton(QPushButton):
@@ -210,11 +206,9 @@ class Toast(QLabel):
             f"background:{bg}; color:{fg}; border:1px solid {border};"
             f"border-radius:10px; padding:10px 18px; font-weight:500;"
         )
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(40)
-        shadow.setOffset(0, 8)
-        shadow.setColor(QColor(0, 0, 0, 140))
-        self.setGraphicsEffect(shadow)
+        # Toast is short-lived, but it still paints on top of the main window
+        # which gets resized constantly during splitter drags. A flat toast
+        # avoids the graphics-effect repaint storm.
 
         self.adjustSize()
         self._position()

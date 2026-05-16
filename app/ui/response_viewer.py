@@ -133,10 +133,9 @@ class ResponseViewer(QWidget):
 
         self.loader = LoaderOverlay(self)
         translator.language_changed.connect(self._retranslate)
-        # fade response tabs as the user toggles between Body / Headers / Raw
-        self.tabs.currentChanged.connect(
-            lambda _i: fade_in(self.tabs.currentWidget(), 160)
-        )
+        # Tab-switch fade removed — was a QGraphicsOpacityEffect that caused
+        # flicker during splitter resize. The CSS underline transition reads
+        # as enough motion.
         self.clear()
 
     def resizeEvent(self, ev):
@@ -177,7 +176,6 @@ class ResponseViewer(QWidget):
             self.time_label.setText(f"{resp.duration_ms} ms")
             self.size_label.setText("—")
             self.headers_table.setRowCount(0)
-            fade_in(self.body_view, 220)
             return
 
         self.status.set_status(resp.status_code, resp.reason)
@@ -199,8 +197,6 @@ class ResponseViewer(QWidget):
             self.headers_table.insertRow(r)
             self.headers_table.setItem(r, 0, QTableWidgetItem(k))
             self.headers_table.setItem(r, 1, QTableWidgetItem(v))
-
-        fade_in(self.body_view, 220)
 
 
 def _humanize_size(n: int) -> str:

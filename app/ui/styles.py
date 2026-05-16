@@ -117,9 +117,9 @@ QPushButton#clearHistoryButton:pressed {
     background: transparent;
     color: #A0A0A0;
     border: none;
-    padding: 8px 14px;
-    border-radius: 8px;
-    font-size: 12px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    font-size: 11.5px;
     font-weight: 600;
     min-height: 22px;
 }

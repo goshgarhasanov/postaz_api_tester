@@ -203,11 +203,10 @@ class RequestEditor(QWidget):
         self.headers_table.changed.connect(self._emit_changed)
 
         translator.language_changed.connect(self._retranslate)
-        # smooth fade as the user moves between Params / Headers / Body / Auth
-        from .animations import fade_in
-        self.tabs.currentChanged.connect(
-            lambda _i: fade_in(self.tabs.currentWidget(), 160)
-        )
+        # We previously faded the tab content on every currentChanged signal,
+        # but that introduced an opacity effect on the widget tree which
+        # re-rendered every frame the splitter was being dragged — visible as
+        # flicker. The QSS underline transition is enough motion.
         self.load(RequestRecord())
 
     # ── helpers ──────────────────────────────────────────────────────
