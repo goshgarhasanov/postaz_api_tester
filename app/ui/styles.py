@@ -553,4 +553,28 @@ QTableWidget#consoleTable::item:selected {
 
 /* ─── status-codes dialog ─────────────────────────────────────── */
 QScrollArea#statusScroll { background: transparent; border: none; }
+
+/* ─── status-bar Console pill ─────────────────────────────────── */
+QPushButton#statusConsoleButton {
+    background: transparent;
+    color: #A0A0A0;
+    border: none;
+    border-radius: 5px;
+    padding: 3px 12px;
+    font-family: "JetBrains Mono", "Consolas";
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+}
+QPushButton#statusConsoleButton:hover {
+    background: #2A2A2A;
+    color: #FFFFFF;
+}
+QPushButton#statusConsoleButton:checked {
+    background: rgba(255, 108, 55, 0.16);
+    color: #FF8557;
+}
+QPushButton#statusConsoleButton:checked:hover {
+    background: rgba(255, 108, 55, 0.26);
+}
 """

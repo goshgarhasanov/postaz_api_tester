@@ -258,10 +258,15 @@ class MainWindow(QMainWindow):
         StatusCodesDialog(self).exec()
 
     def _toggle_console(self) -> None:
-        """Slide the console drawer in or out at the bottom of the window."""
+        """Slide the console drawer in or out at the bottom of the window.
+
+        Triggered by View → Console (Ctrl+`) AND by the bottom status-bar
+        pill — both stay in sync via the checkable state."""
         visible = not self.console.isVisible()
         self.console.setVisible(visible)
         self._actions["console"].setChecked(visible)
+        if hasattr(self, "btn_status_console"):
+            self.btn_status_console.setChecked(visible)
         if visible:
             sizes = self._center_split.sizes()
             total = sum(sizes)
@@ -346,9 +351,23 @@ class MainWindow(QMainWindow):
 
     def _build_status(self) -> None:
         bar = QStatusBar()
+
+        # Postman-style 'Console' pill on the left of the status bar.
+        # Click → toggles the console drawer; sticks open when active.
+        from PySide6.QtWidgets import QPushButton
+        self.btn_status_console = QPushButton("›_ " + self._tr_console())
+        self.btn_status_console.setObjectName("statusConsoleButton")
+        self.btn_status_console.setCursor(Qt.PointingHandCursor)
+        self.btn_status_console.setCheckable(True)
+        self.btn_status_console.clicked.connect(self._toggle_console)
+        self.btn_status_console.setFlat(True)
+        bar.addWidget(self.btn_status_console)
+
+        # Env indicator stays at the far right.
         self.env_label = QLabel(t("No environment"))
         self.env_label.setStyleSheet("padding: 2px 8px;")
         bar.addPermanentWidget(self.env_label)
+
         self.setStatusBar(bar)
 
     # ── request lifecycle ────────────────────────────────────────────

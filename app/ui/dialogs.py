@@ -36,7 +36,7 @@ from .widgets import GhostButton, PrimaryButton
 GITHUB_URL = "https://github.com/goshgarhasanov/postaz_api_tester"
 COFFEE_URL = "https://kofe.al/goshgarhasanov"
 DEV_NAME = "goshgarhasanov"
-APP_VERSION = "1.0.0"
+APP_VERSION = "2.0.0"
 
 
 # ── Save Request ──────────────────────────────────────────────────────────
