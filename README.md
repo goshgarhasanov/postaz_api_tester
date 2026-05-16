@@ -26,7 +26,7 @@
 
 <br>
 
-![Postaz screenshot](docs/screenshot-main.png)
+![Postaz screenshot](docs/postaz-v2.png)
 
 </div>
 
