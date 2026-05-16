@@ -219,21 +219,23 @@ def icon_copy(color: str = "#c9cce0") -> QIcon:        return _icon(_copy, color
 
 # ── App / window icon (the Postaz mark) ───────────────────────────────
 def app_icon(size: int = 256) -> QIcon:
-    """The Postaz logomark — a gradient rounded square with a stylized paper plane."""
+    """The Postaz logomark — orange gradient rounded square with a stylised
+    paper plane. Used as the window icon and the corner mark of the brand
+    header in the sidebar."""
     pm = QPixmap(size, size)
     pm.fill(Qt.transparent)
     p = QPainter(pm)
     p.setRenderHint(QPainter.Antialiasing, True)
-    # background gradient
+    # background gradient — Postman orange
     grad = QLinearGradient(0, 0, size, size)
-    grad.setColorAt(0.0, QColor("#8d70ff"))
-    grad.setColorAt(1.0, QColor("#5a3fd9"))
+    grad.setColorAt(0.0, QColor("#FF8557"))
+    grad.setColorAt(1.0, QColor("#E55A2B"))
     p.setBrush(QBrush(grad))
     p.setPen(Qt.NoPen)
     r = size * 0.22
     p.drawRoundedRect(QRectF(0, 0, size, size), r, r)
     # paper plane (white)
-    pen = QPen(QColor("#ffffff"))
+    pen = QPen(QColor("#FFFFFF"))
     pen.setWidthF(size * 0.05)
     pen.setCapStyle(Qt.RoundCap)
     pen.setJoinStyle(Qt.RoundJoin)
@@ -244,11 +246,11 @@ def app_icon(size: int = 256) -> QIcon:
     path.lineTo(size * 0.60, size * 0.78)
     path.lineTo(size * 0.48, size * 0.54)
     path.closeSubpath()
-    p.setBrush(QColor("#ffffff"))
+    p.setBrush(QColor("#FFFFFF"))
     p.drawPath(path)
-    # crease
+    # crease — slightly darker orange so the fold reads
     p.setBrush(Qt.NoBrush)
-    pen2 = QPen(QColor("#5a3fd9"))
+    pen2 = QPen(QColor("#C44A1F"))
     pen2.setWidthF(size * 0.03)
     p.setPen(pen2)
     p.drawLine(QPointF(size * 0.48, size * 0.54), QPointF(size * 0.78, size * 0.26))
