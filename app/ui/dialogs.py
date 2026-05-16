@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Optional
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QDesktopServices, QFont, QPixmap
+from PySide6.QtGui import QColor, QDesktopServices, QFont, QPixmap
 from PySide6.QtCore import QUrl
 from PySide6.QtWidgets import (
     QComboBox,
@@ -297,90 +297,129 @@ CONFIRM_KEY_HISTORY    = "confirm.delete_history"
 
 
 class ConfirmDeleteDialog(QDialog):
-    """Custom confirmation popup.
+    """Modern confirmation popup — looks like a Notion / Linear destructive prompt.
 
-    Looks like a small frosted card: red trash glyph + bold title + soft
-    descriptive copy + 'Don't ask me again' toggle + Cancel / Delete buttons.
+    Layout (visualised):
+
+        ╭────────────────────────────────────────────────────╮
+        │                                                    │
+        │     ⌬  red soft-tint disc with white trash icon    │
+        │                                                    │
+        │            Delete request?                         │
+        │                                                    │
+        │     This request will be permanently removed.      │
+        │                                                    │
+        │                                                    │
+        │   ◯ Don't ask me again                             │
+        │                                                    │
+        │              [ Cancel ]  [ Delete ]                │
+        ╰────────────────────────────────────────────────────╯
+
     Returns:
-      .exec()         → QDialog.Accepted on confirm
-      .dont_ask()     → True if the toggle was flipped on
+      .exec()       → QDialog.Accepted on confirm
+      .dont_ask()   → True if the toggle was flipped on
     """
 
     def __init__(self, parent: QWidget | None, title: str, message: str, action_label: str | None = None):
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setModal(True)
-        self.setMinimumSize(460, 260)
+        # No native title bar / OS chrome on the dialog — fully custom.
+        self.setWindowFlags(self.windowFlags() | Qt.FramelessWindowHint)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setFixedWidth(420)
+        self.setMinimumHeight(320)
 
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(28, 24, 28, 22)
-        outer.setSpacing(16)
+        # ── card surface ─────────────────────────────────────────────
+        wrapper = QVBoxLayout(self)
+        wrapper.setContentsMargins(20, 20, 20, 20)
 
-        # Header: red-tinted trash glyph + heading.
-        head = QHBoxLayout()
-        head.setSpacing(14)
-        icon_label = QLabel()
-        pm = icon_trash("#ff8090").pixmap(40, 40)
-        icon_label.setPixmap(pm)
-        icon_label.setFixedSize(56, 56)
-        icon_label.setAlignment(Qt.AlignCenter)
-        icon_label.setStyleSheet(
-            "background: rgba(255, 110, 124, 0.10);"
-            "border: 1px solid rgba(255, 110, 124, 0.30);"
-            "border-radius: 14px;"
+        card = QFrame()
+        card.setObjectName("confirmCard")
+        wrapper.addWidget(card)
+
+        # Drop shadow so the card feels detached from whatever's behind it.
+        from PySide6.QtWidgets import QGraphicsDropShadowEffect
+        shadow = QGraphicsDropShadowEffect(card)
+        shadow.setBlurRadius(48)
+        shadow.setOffset(0, 18)
+        shadow.setColor(QColor(0, 0, 0, 160))
+        card.setGraphicsEffect(shadow)
+
+        body = QVBoxLayout(card)
+        body.setContentsMargins(30, 28, 30, 24)
+        body.setSpacing(0)
+
+        # ── 1. centred icon ──────────────────────────────────────────
+        icon_disc = QLabel()
+        icon_disc.setFixedSize(64, 64)
+        icon_disc.setAlignment(Qt.AlignCenter)
+        icon_disc.setPixmap(icon_trash("#ff8090").pixmap(36, 36))
+        icon_disc.setStyleSheet(
+            "background: rgba(255, 110, 124, 0.12);"
+            "border: none;"
+            "border-radius: 32px;"
         )
-        head.addWidget(icon_label)
-        head_text = QVBoxLayout()
-        head_text.setSpacing(4)
+        icon_row = QHBoxLayout()
+        icon_row.addStretch()
+        icon_row.addWidget(icon_disc)
+        icon_row.addStretch()
+        body.addLayout(icon_row)
+        body.addSpacing(20)
+
+        # ── 2. heading ───────────────────────────────────────────────
         heading = QLabel(title)
-        heading.setStyleSheet("color: #ffffff; font-size: 16px; font-weight: 700;")
-        head_text.addWidget(heading)
-        body = QLabel(message)
-        body.setWordWrap(True)
-        body.setStyleSheet("color: #a4a7c2; font-size: 12.5px; line-height: 1.5;")
-        head_text.addWidget(body)
-        head.addLayout(head_text, 1)
-        outer.addLayout(head)
+        heading.setAlignment(Qt.AlignCenter)
+        heading.setStyleSheet(
+            "color: #ffffff; font-size: 17px; font-weight: 700;"
+            "letter-spacing: 0.2px; background: transparent;"
+        )
+        body.addWidget(heading)
+        body.addSpacing(10)
 
-        outer.addStretch()
+        # ── 3. message ───────────────────────────────────────────────
+        msg = QLabel(message)
+        msg.setWordWrap(True)
+        msg.setAlignment(Qt.AlignCenter)
+        msg.setStyleSheet(
+            "color: #9aa0bd; font-size: 12.5px; background: transparent;"
+        )
+        body.addWidget(msg)
+        body.addSpacing(22)
 
-        # Don't-ask-again toggle.
+        # ── 4. don't-ask-again row (centred, no border) ──────────────
         self._toggle = ToggleSwitch(checked=False)
         toggle_row = QHBoxLayout()
         toggle_row.setSpacing(10)
-        toggle_row.addWidget(self._toggle)
-        label = QLabel(t("Don't ask me again"))
-        label.setStyleSheet("color: #c9cce0; font-size: 12px;")
-        label.setCursor(Qt.PointingHandCursor)
-        label.mousePressEvent = lambda _e: self._toggle.toggle()        # noqa
-        toggle_row.addWidget(label)
         toggle_row.addStretch()
-        outer.addLayout(toggle_row)
+        toggle_row.addWidget(self._toggle, 0, Qt.AlignVCenter)
+        label = QLabel(t("Don't ask me again"))
+        label.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+        label.setCursor(Qt.PointingHandCursor)
+        label.setStyleSheet("color: #b6bad0; font-size: 12px; background: transparent;")
+        # Clicking the label also flips the toggle — bigger click target.
+        label.mousePressEvent = lambda _e: self._toggle.toggle()       # noqa
+        toggle_row.addWidget(label, 0, Qt.AlignVCenter)
+        toggle_row.addStretch()
+        body.addLayout(toggle_row)
+        body.addSpacing(22)
 
-        # Buttons row.
+        # ── 5. buttons row ───────────────────────────────────────────
         btns = QHBoxLayout()
         btns.setSpacing(10)
-        btns.addStretch()
-        cancel = GhostButton(t("Cancel"))
+        cancel = QPushButton(t("Cancel"))
+        cancel.setObjectName("confirmCancel")
+        cancel.setCursor(Qt.PointingHandCursor)
         cancel.clicked.connect(self.reject)
-        self._delete_btn = PrimaryButton(action_label or t("Delete"))
-        # Repaint the primary CTA as a danger button: red gradient instead of purple.
-        self._delete_btn.setStyleSheet(
-            "QPushButton#primaryButton {"
-            " background: qlineargradient(x1:0, y1:0, x2:1, y2:1,"
-            "  stop:0 #ff6e7c, stop:1 #d9384b);"
-            " border-radius: 10px; padding: 0 22px; font-weight: 700;"
-            " color: white; min-height: 40px;"
-            "}"
-            "QPushButton#primaryButton:hover {"
-            " background: qlineargradient(x1:0, y1:0, x2:1, y2:1,"
-            "  stop:0 #ff8090, stop:1 #e64e60);"
-            "}"
-        )
+        cancel.setMinimumHeight(40)
+        self._delete_btn = QPushButton(action_label or t("Delete"))
+        self._delete_btn.setObjectName("confirmDanger")
+        self._delete_btn.setCursor(Qt.PointingHandCursor)
         self._delete_btn.clicked.connect(self.accept)
-        btns.addWidget(cancel)
-        btns.addWidget(self._delete_btn)
-        outer.addLayout(btns)
+        self._delete_btn.setMinimumHeight(40)
+        btns.addWidget(cancel, 1)
+        btns.addWidget(self._delete_btn, 1)
+        body.addLayout(btns)
 
     def dont_ask(self) -> bool:
         return self._toggle.isChecked()

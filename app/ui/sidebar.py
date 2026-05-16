@@ -378,6 +378,10 @@ class Sidebar(QWidget):
         self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._on_tree_context)
         self.tree.itemDoubleClicked.connect(self._on_tree_double_click)
+        # event filter on the viewport so we can flip the cursor when the
+        # mouse enters the trash zone of any row.
+        self.tree.viewport().setMouseTracking(True)
+        self.tree.viewport().installEventFilter(self)
         self.stack.addWidget(self.tree)
 
         # History panel = a "Clear all" pill on top + the list of past requests.
@@ -400,6 +404,9 @@ class Sidebar(QWidget):
         self.history_list.setObjectName("historyList")
         self.history_list.setMouseTracking(True)
         self.history_list.itemDoubleClicked.connect(self._on_history_double_click)
+        # Same cursor-flip on the history list's trash zone.
+        self.history_list.viewport().setMouseTracking(True)
+        self.history_list.viewport().installEventFilter(self)
         hpl.addWidget(self.history_list, 1)
 
         self.stack.addWidget(history_panel)
@@ -614,6 +621,47 @@ class Sidebar(QWidget):
         payload = item.data(Qt.UserRole)
         if isinstance(payload, tuple) and len(payload) == 2:
             self.history_selected.emit(int(payload[1]))
+
+    # ── cursor flip when hovering the trash zone of any row ──────────────
+    def eventFilter(self, source, event):
+        if event.type() == QEvent.MouseMove:
+            view = None
+            if source is self.tree.viewport():
+                view = self.tree
+            elif source is self.history_list.viewport():
+                view = self.history_list
+            if view is not None:
+                self._cursor_for_pos(view, event.position().toPoint())
+                return False
+        elif event.type() == QEvent.Leave:
+            if source is self.tree.viewport():
+                self.tree.viewport().unsetCursor()
+            elif source is self.history_list.viewport():
+                self.history_list.viewport().unsetCursor()
+        return super().eventFilter(source, event)
+
+    def _cursor_for_pos(self, view, pos) -> None:
+        """Show a pointing-hand cursor when the mouse sits in a row's trash zone."""
+        index = view.indexAt(pos)
+        viewport = view.viewport()
+        if not index.isValid():
+            viewport.unsetCursor()
+            return
+        payload = index.data(Qt.UserRole)
+        if not (isinstance(payload, tuple) and len(payload) == 2):
+            viewport.unsetCursor()
+            return
+        kind, ident = payload[0], payload[1]
+        # Quick Saves (id == 0) has no trash icon — keep default cursor.
+        if kind == "collection" and ident == 0:
+            viewport.unsetCursor()
+            return
+        rect = view.visualRect(index)
+        trash_left = rect.right() - TRASH_ZONE_W
+        if pos.x() >= trash_left:
+            viewport.setCursor(Qt.PointingHandCursor)
+        else:
+            viewport.unsetCursor()
 
     # ── unified delete dispatcher (one per delegate click) ────────────────
     def _on_delete_clicked(self, payload: tuple) -> None:
