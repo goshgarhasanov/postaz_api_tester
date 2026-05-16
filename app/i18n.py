@@ -148,6 +148,23 @@ _DICT: dict[str, dict[str, str]] = {
          "tr": "Durum: {code}\nSüre: {ms} ms\nTarih: {ts}"},
     "Yes":                             {"az": "Bəli", "tr": "Evet"},
     "No":                              {"az": "Xeyr", "tr": "Hayır"},
+
+    # ── confirm-delete dialog ────────────────────────────────────
+    "Delete collection?":              {"az": "Kolleksiya silinsin?", "tr": "Koleksiyon silinsin mi?"},
+    "Delete request?":                 {"az": "Sorğu silinsin?", "tr": "İstek silinsin mi?"},
+    "Delete history entry?":           {"az": "Tarixçə qeydi silinsin?", "tr": "Geçmiş kaydı silinsin mi?"},
+    "This will permanently delete the collection and every request inside it. This cannot be undone.":
+        {"az": "Bu, kolleksiyanı və içindəki bütün sorğuları həmişəlik siləcək. Bu əməliyyat geri alına bilməz.",
+         "tr": "Bu, koleksiyonu ve içindeki tüm istekleri kalıcı olarak silecek. Bu işlem geri alınamaz."},
+    "This request will be permanently removed.":
+        {"az": "Bu sorğu həmişəlik silinəcək.",
+         "tr": "Bu istek kalıcı olarak silinecek."},
+    "Remove this entry from your history?":
+        {"az": "Bu qeyd tarixçədən silinsin?",
+         "tr": "Bu kayıt geçmişten silinsin mi?"},
+    "Don't ask me again":              {"az": "Bir daha soruşma", "tr": "Bir daha sorma"},
+    "Reset delete confirmations":      {"az": "Silmə təsdiqlərini sıfırla", "tr": "Silme onaylarını sıfırla"},
+    "Confirmations reset":             {"az": "Təsdiqlər sıfırlandı", "tr": "Onaylar sıfırlandı"},
 }
 
 

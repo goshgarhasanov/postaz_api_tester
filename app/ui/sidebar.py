@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from PySide6.QtCore import QRectF, Qt, Signal
+from PySide6.QtCore import QEvent, QRect, QRectF, Qt, Signal
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
@@ -17,6 +17,7 @@ from PySide6.QtGui import (
     QFont,
     QIcon,
     QPainter,
+    QPainterPath,
     QPen,
 )
 from PySide6.QtWidgets import (
@@ -44,6 +45,7 @@ from PySide6.QtWidgets import (
 
 from ..database import Database, RequestRecord
 from ..i18n import LANGUAGE_LABELS, LANGUAGES, set_language, t, translator
+from .dialogs import confirm_delete
 from .icons import icon_folder, icon_globe, icon_import, icon_plus
 from .logo import Logo
 from .widgets import IconButton
@@ -65,19 +67,55 @@ _METHOD_COLORS = {
 }
 
 
-class _RequestItemDelegate(QStyledItemDelegate):
-    """Custom painter for sidebar request rows.
+TRASH_ZONE_W = 32   # px reserved at the right edge for the trash icon
 
-    Renders a small coloured method tag + the request name. Folder rows
-    (collections) fall back to the default delegate so their bold text +
-    icon stay intact."""
+
+class _SidebarDelegate(QStyledItemDelegate):
+    """Custom painter for both collection and request rows.
+
+    Layout for a request row:
+        ┌───────────────────────────────────────────────┐
+        │ [METHOD]  request name                  🗑    │
+        └───────────────────────────────────────────────┘
+
+    Layout for a collection row (folder):
+        ┌───────────────────────────────────────────────┐
+        │  📁  Collection name                    🗑    │
+        └───────────────────────────────────────────────┘
+
+    The trash icon only renders on hover, and only for real (non-Quick-Saves)
+    collections / saved requests. Clicking it emits `delete_clicked` with the
+    underlying row payload."""
+
+    delete_clicked = Signal(tuple)   # ("collection"|"request"|"history", id)
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index) -> None:
         payload = index.data(Qt.UserRole)
-        if not (payload and isinstance(payload, tuple) and payload[0] == "request"):
+        if not (payload and isinstance(payload, tuple)):
             super().paint(painter, option, index)
             return
+        kind = payload[0]
+        if kind in ("request", "history"):
+            self._paint_request(painter, option, index, payload)
+        elif kind == "collection":
+            self._paint_collection(painter, option, index, payload)
+        else:
+            super().paint(painter, option, index)
 
+    # ── shared bg ────────────────────────────────────────────────────
+    def _paint_background(self, painter: QPainter, opt: QStyleOptionViewItem) -> None:
+        rect = opt.rect
+        if opt.state & QStyle.State_Selected:
+            painter.setBrush(QColor("#25254a"))
+            painter.setPen(Qt.NoPen)
+            painter.drawRoundedRect(rect.adjusted(2, 1, -2, -1), 8, 8)
+        elif opt.state & QStyle.State_MouseOver:
+            painter.setBrush(QColor("#1a1c2e"))
+            painter.setPen(Qt.NoPen)
+            painter.drawRoundedRect(rect.adjusted(2, 1, -2, -1), 8, 8)
+
+    # ── request row ──────────────────────────────────────────────────
+    def _paint_request(self, painter, option, index, payload) -> None:
         method, name = index.data(Qt.UserRole + 1) or ("GET", index.data(Qt.DisplayRole) or "")
         opt = QStyleOptionViewItem(option)
         self.initStyleOption(opt, index)
@@ -85,18 +123,7 @@ class _RequestItemDelegate(QStyledItemDelegate):
 
         painter.save()
         painter.setRenderHint(QPainter.Antialiasing, True)
-
-        # background (hover/selected handled by stylesheet, but we re-paint
-        # the rounded fill explicitly so the underlying tree highlight aligns
-        # perfectly with our padded content).
-        if opt.state & QStyle.State_Selected:
-            painter.setBrush(QColor("#25254a"))
-            painter.setPen(Qt.NoPen)
-            painter.drawRoundedRect(rect.adjusted(2, 1, -2, -1), 6, 6)
-        elif opt.state & QStyle.State_MouseOver:
-            painter.setBrush(QColor("#1a1c2e"))
-            painter.setPen(Qt.NoPen)
-            painter.drawRoundedRect(rect.adjusted(2, 1, -2, -1), 6, 6)
+        self._paint_background(painter, opt)
 
         # method badge
         bg, fg = _METHOD_COLORS.get(method.upper(), ("#262842", "#bda6ff"))
@@ -115,21 +142,120 @@ class _RequestItemDelegate(QStyledItemDelegate):
         painter.setPen(QColor(fg))
         painter.drawText(QRectF(bx, by, badge_w, badge_h), Qt.AlignCenter, method.upper())
 
-        # request name
+        # request name — leave room on the right for the trash icon
         text_x = bx + badge_w + 10
-        text_rect = QRectF(text_x, rect.y(), rect.width() - text_x - 8, rect.height())
-        painter.setPen(QColor("#e6e8f5") if opt.state & (QStyle.State_Selected | QStyle.State_MouseOver) else QColor("#b6bad0"))
+        right_inset = TRASH_ZONE_W if (opt.state & QStyle.State_MouseOver) else 6
+        text_rect = QRectF(text_x, rect.y(), rect.width() - text_x - right_inset, rect.height())
+        text_color = QColor("#e6e8f5") if opt.state & (QStyle.State_Selected | QStyle.State_MouseOver) else QColor("#b6bad0")
+        painter.setPen(text_color)
         font = QFont(option.font)
         font.setPointSizeF(9.5)
         painter.setFont(font)
         painter.drawText(text_rect, Qt.AlignVCenter | Qt.AlignLeft, name)
 
+        # trash icon on hover
+        if opt.state & QStyle.State_MouseOver:
+            self._paint_trash(painter, rect)
         painter.restore()
+
+    # ── collection row ───────────────────────────────────────────────
+    def _paint_collection(self, painter, option, index, payload) -> None:
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+        rect = opt.rect
+        col_id = payload[1] if len(payload) > 1 else 0
+        is_quick_saves = (col_id == 0)
+        name = index.data(Qt.DisplayRole) or ""
+
+        painter.save()
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        self._paint_background(painter, opt)
+
+        # folder glyph — purple-tinted rounded rect with a small tab
+        glyph_size = 16
+        gx = rect.x() + 8
+        gy = rect.y() + (rect.height() - glyph_size) / 2
+        path = QPainterPath()
+        path.moveTo(gx, gy + 4)
+        path.lineTo(gx + 5, gy + 4)
+        path.lineTo(gx + 7, gy + 1)
+        path.lineTo(gx + glyph_size, gy + 1)
+        path.lineTo(gx + glyph_size, gy + glyph_size)
+        path.lineTo(gx, gy + glyph_size)
+        path.closeSubpath()
+        painter.setBrush(QColor("#3a2f60"))
+        painter.setPen(QPen(QColor("#a89bff"), 1.3))
+        painter.drawPath(path)
+
+        # collection name
+        right_inset = TRASH_ZONE_W if (opt.state & QStyle.State_MouseOver and not is_quick_saves) else 6
+        text_x = gx + glyph_size + 12
+        text_rect = QRectF(text_x, rect.y(), rect.width() - text_x - right_inset, rect.height())
+        font = QFont(option.font)
+        font.setPointSizeF(10.0)
+        font.setBold(True)
+        font.setLetterSpacing(QFont.AbsoluteSpacing, 0.2)
+        painter.setFont(font)
+        painter.setPen(QColor("#ffffff") if opt.state & QStyle.State_MouseOver else QColor("#dcdfee"))
+        painter.drawText(text_rect, Qt.AlignVCenter | Qt.AlignLeft, name)
+
+        # trash icon on hover — never on the Quick Saves pseudo-collection
+        if (opt.state & QStyle.State_MouseOver) and not is_quick_saves:
+            self._paint_trash(painter, rect)
+        painter.restore()
+
+    # ── trash glyph ──────────────────────────────────────────────────
+    def _paint_trash(self, painter: QPainter, row_rect) -> None:
+        # Right-aligned 14x14 trash glyph, drawn at the row's vertical middle.
+        size = 14
+        x = row_rect.right() - 10 - size
+        y = row_rect.y() + (row_rect.height() - size) / 2
+        pen = QPen(QColor("#ff8090"))
+        pen.setWidthF(1.4)
+        pen.setCapStyle(Qt.RoundCap)
+        pen.setJoinStyle(Qt.RoundJoin)
+        painter.setPen(pen)
+        painter.setBrush(Qt.NoBrush)
+        # lid
+        painter.drawLine(int(x + 1), int(y + 3), int(x + size - 1), int(y + 3))
+        # handle
+        painter.drawLine(int(x + 4), int(y + 1), int(x + size - 4), int(y + 1))
+        painter.drawLine(int(x + 4), int(y + 1), int(x + 4), int(y + 3))
+        painter.drawLine(int(x + size - 4), int(y + 1), int(x + size - 4), int(y + 3))
+        # body
+        body = QPainterPath()
+        body.moveTo(x + 2, y + 4)
+        body.lineTo(x + 3, y + size - 1)
+        body.lineTo(x + size - 3, y + size - 1)
+        body.lineTo(x + size - 2, y + 4)
+        painter.drawPath(body)
+        # ticks
+        painter.drawLine(int(x + 5), int(y + 6), int(x + 5), int(y + size - 3))
+        painter.drawLine(int(x + size - 5), int(y + 6), int(x + size - 5), int(y + size - 3))
+
+    # ── click handling ───────────────────────────────────────────────
+    def editorEvent(self, event, model, option, index) -> bool:
+        if event.type() == QEvent.MouseButtonRelease:
+            payload = index.data(Qt.UserRole)
+            if isinstance(payload, tuple) and len(payload) >= 2:
+                kind, ident = payload[0], payload[1]
+                if kind == "collection" and ident == 0:
+                    return False  # Quick Saves — no trash
+                rect = option.rect
+                trash_x = rect.right() - TRASH_ZONE_W
+                if event.position().x() >= trash_x:
+                    self.delete_clicked.emit((kind, int(ident)))
+                    return True
+        return False
 
     def sizeHint(self, option, index):
         size = super().sizeHint(option, index)
-        size.setHeight(max(size.height(), 32))
+        size.setHeight(max(size.height(), 36))
         return size
+
+
+# Backwards-compatible alias (was named _RequestItemDelegate in an earlier rev).
+_RequestItemDelegate = _SidebarDelegate
 
 
 class Sidebar(QWidget):
@@ -243,19 +369,40 @@ class Sidebar(QWidget):
         self.tree = QTreeWidget()
         self.tree.setObjectName("collectionsTree")
         self.tree.setHeaderHidden(True)
-        self.tree.setIndentation(16)
+        self.tree.setIndentation(14)
         self.tree.setMouseTracking(True)
         self.tree.setUniformRowHeights(True)
-        self.tree.setItemDelegate(_RequestItemDelegate(self.tree))
+        self._tree_delegate = _SidebarDelegate(self.tree)
+        self._tree_delegate.delete_clicked.connect(self._on_delete_clicked)
+        self.tree.setItemDelegate(self._tree_delegate)
         self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._on_tree_context)
         self.tree.itemDoubleClicked.connect(self._on_tree_double_click)
         self.stack.addWidget(self.tree)
 
+        # History panel = a "Clear all" pill on top + the list of past requests.
+        history_panel = QWidget()
+        hpl = QVBoxLayout(history_panel)
+        hpl.setContentsMargins(0, 0, 0, 0)
+        hpl.setSpacing(0)
+
+        clear_row = QHBoxLayout()
+        clear_row.setContentsMargins(12, 4, 12, 6)
+        clear_row.addStretch()
+        self.btn_clear_history = QPushButton(self._tr_clear_history())
+        self.btn_clear_history.setObjectName("clearHistoryButton")
+        self.btn_clear_history.setCursor(Qt.PointingHandCursor)
+        self.btn_clear_history.clicked.connect(self._clear_history)
+        clear_row.addWidget(self.btn_clear_history)
+        hpl.addLayout(clear_row)
+
         self.history_list = QListWidget()
         self.history_list.setObjectName("historyList")
+        self.history_list.setMouseTracking(True)
         self.history_list.itemDoubleClicked.connect(self._on_history_double_click)
-        self.stack.addWidget(self.history_list)
+        hpl.addWidget(self.history_list, 1)
+
+        self.stack.addWidget(history_panel)
 
         # ─ Wire ──────────────────────────────────────────────────────────
         self.btn_collections.clicked.connect(lambda: self._switch(0))
@@ -275,11 +422,26 @@ class Sidebar(QWidget):
             "tr": "cURL içe aktar  (Ctrl+I)",
         }[translator.language]
 
+    def _tr_clear_history(self) -> str:
+        return {
+            "en": "Clear all",
+            "az": "Hamısını sil",
+            "tr": "Hepsini sil",
+        }[translator.language]
+
+    def _clear_history(self) -> None:
+        """Wipe the history table, honouring the suppression setting."""
+        if confirm_delete(self, self.db, "history"):
+            self.db.clear_history()
+            self._reload_history()
+
     def _retranslate(self, _lang: str | None = None) -> None:
         self.btn_collections.setText(t("Collections"))
         self.btn_history.setText(t("History"))
         self.btn_add.setToolTip(t("New collection"))
         self.btn_import.setToolTip(self._tr_import_tip())
+        if hasattr(self, "btn_clear_history"):
+            self.btn_clear_history.setText(self._tr_clear_history())
         self.search.setPlaceholderText(t("Search…"))
         self.lang_btn.setText(translator.language.upper())
         for code, act in self._lang_actions.items():
@@ -314,24 +476,15 @@ class Sidebar(QWidget):
         collections = self.db.list_collections()
         cmap: dict[int, QTreeWidgetItem] = {}
 
-        folder_icon = icon_folder("#a89bff")
-
-        # placeholder for root-level requests
+        # Quick Saves pseudo-collection at the top — same delegate paints it,
+        # but the trash icon is suppressed by id==0.
         loose = QTreeWidgetItem([t("Quick Saves")])
         loose.setData(0, Qt.UserRole, ("collection", 0))
-        loose.setIcon(0, folder_icon)
-        f = loose.font(0)
-        f.setBold(True)
-        loose.setFont(0, f)
         self.tree.addTopLevelItem(loose)
 
         for col in collections:
             item = QTreeWidgetItem([col.name])
             item.setData(0, Qt.UserRole, ("collection", col.id))
-            item.setIcon(0, folder_icon)
-            ff = item.font(0)
-            ff.setBold(True)
-            item.setFont(0, ff)
             cmap[col.id] = item
 
         for col in collections:
@@ -414,13 +567,7 @@ class Sidebar(QWidget):
             self._reload_tree()
 
     def _delete_collection(self, cid: int) -> None:
-        r = QMessageBox.question(
-            self,
-            t("Delete collection"),
-            t("Delete this collection and all its requests?"),
-            QMessageBox.Yes | QMessageBox.No,
-        )
-        if r == QMessageBox.Yes:
+        if confirm_delete(self, self.db, "collection"):
             self.db.delete_collection(cid)
             self._reload_tree()
 
@@ -435,10 +582,7 @@ class Sidebar(QWidget):
             self._reload_tree()
 
     def _delete_request(self, rid: int) -> None:
-        r = QMessageBox.question(
-            self, t("Delete request"), t("Delete this request?"), QMessageBox.Yes | QMessageBox.No
-        )
-        if r == QMessageBox.Yes:
+        if confirm_delete(self, self.db, "request"):
             self.db.delete_request(rid)
             self._reload_tree()
 
@@ -447,10 +591,9 @@ class Sidebar(QWidget):
         self.history_list.clear()
         for h in self.db.list_history(100):
             item = QListWidgetItem(h["url"])
-            # Stored both as the synthetic delegate marker (with history_id
-            # so we can route on double-click) AND with method/name for the
-            # badge painter.
-            item.setData(Qt.UserRole, ("request", int(h["id"])))
+            # Tagged as "history" (not "request") so the delegate's trash
+            # click routes to history deletion, not request deletion.
+            item.setData(Qt.UserRole, ("history", int(h["id"])))
             item.setData(Qt.UserRole + 1, (h["method"], h["url"]))
             item.setToolTip(
                 t(
@@ -462,13 +605,35 @@ class Sidebar(QWidget):
             )
             self.history_list.addItem(item)
         # Reuse the same delegate so history rows look identical to saved ones.
-        if not isinstance(self.history_list.itemDelegate(), _RequestItemDelegate):
-            self.history_list.setItemDelegate(_RequestItemDelegate(self.history_list))
+        if not isinstance(self.history_list.itemDelegate(), _SidebarDelegate):
+            d = _SidebarDelegate(self.history_list)
+            d.delete_clicked.connect(self._on_delete_clicked)
+            self.history_list.setItemDelegate(d)
 
     def _on_history_double_click(self, item: QListWidgetItem) -> None:
         payload = item.data(Qt.UserRole)
         if isinstance(payload, tuple) and len(payload) == 2:
             self.history_selected.emit(int(payload[1]))
+
+    # ── unified delete dispatcher (one per delegate click) ────────────────
+    def _on_delete_clicked(self, payload: tuple) -> None:
+        """Routes a trash-icon click to the right deletion handler."""
+        if not isinstance(payload, tuple) or len(payload) != 2:
+            return
+        kind, ident = payload
+        if kind == "collection":
+            self._delete_collection(int(ident))
+        elif kind == "request":
+            self._delete_request(int(ident))
+        elif kind == "history":
+            self._delete_history_entry(int(ident))
+
+    def _delete_history_entry(self, history_id: int) -> None:
+        """Remove a single history row after a confirmation prompt."""
+        if confirm_delete(self, self.db, "history"):
+            with self.db._conn() as c:                       # noqa — internal helper is fine here
+                c.execute("DELETE FROM history WHERE id = ?", (history_id,))
+            self._reload_history()
 
     # ── filter ────────────────────────────────────────────────────────────
     def _apply_filter(self, text: str) -> None:

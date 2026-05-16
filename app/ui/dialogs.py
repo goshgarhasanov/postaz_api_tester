@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
 from ..database import Database
 from ..i18n import t
 from .icons import app_icon, icon_plus, icon_trash
+from .toggle import ToggleSwitch
 from .widgets import GhostButton, PrimaryButton
 
 
@@ -283,6 +284,146 @@ class EnvironmentDialog(QDialog):
         self.db.set_active_environment(env["id"])
         self._reload()
         self.changed.emit()
+
+
+# ── Confirm Delete ────────────────────────────────────────────────────────
+# A modern, brand-styled replacement for QMessageBox.question(). Includes
+# an optional "Don't ask me again" toggle wired straight into a settings key.
+
+# Settings keys used for the suppress-confirmation feature.
+CONFIRM_KEY_COLLECTION = "confirm.delete_collection"
+CONFIRM_KEY_REQUEST    = "confirm.delete_request"
+CONFIRM_KEY_HISTORY    = "confirm.delete_history"
+
+
+class ConfirmDeleteDialog(QDialog):
+    """Custom confirmation popup.
+
+    Looks like a small frosted card: red trash glyph + bold title + soft
+    descriptive copy + 'Don't ask me again' toggle + Cancel / Delete buttons.
+    Returns:
+      .exec()         → QDialog.Accepted on confirm
+      .dont_ask()     → True if the toggle was flipped on
+    """
+
+    def __init__(self, parent: QWidget | None, title: str, message: str, action_label: str | None = None):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.setModal(True)
+        self.setMinimumSize(460, 260)
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(28, 24, 28, 22)
+        outer.setSpacing(16)
+
+        # Header: red-tinted trash glyph + heading.
+        head = QHBoxLayout()
+        head.setSpacing(14)
+        icon_label = QLabel()
+        pm = icon_trash("#ff8090").pixmap(40, 40)
+        icon_label.setPixmap(pm)
+        icon_label.setFixedSize(56, 56)
+        icon_label.setAlignment(Qt.AlignCenter)
+        icon_label.setStyleSheet(
+            "background: rgba(255, 110, 124, 0.10);"
+            "border: 1px solid rgba(255, 110, 124, 0.30);"
+            "border-radius: 14px;"
+        )
+        head.addWidget(icon_label)
+        head_text = QVBoxLayout()
+        head_text.setSpacing(4)
+        heading = QLabel(title)
+        heading.setStyleSheet("color: #ffffff; font-size: 16px; font-weight: 700;")
+        head_text.addWidget(heading)
+        body = QLabel(message)
+        body.setWordWrap(True)
+        body.setStyleSheet("color: #a4a7c2; font-size: 12.5px; line-height: 1.5;")
+        head_text.addWidget(body)
+        head.addLayout(head_text, 1)
+        outer.addLayout(head)
+
+        outer.addStretch()
+
+        # Don't-ask-again toggle.
+        self._toggle = ToggleSwitch(checked=False)
+        toggle_row = QHBoxLayout()
+        toggle_row.setSpacing(10)
+        toggle_row.addWidget(self._toggle)
+        label = QLabel(t("Don't ask me again"))
+        label.setStyleSheet("color: #c9cce0; font-size: 12px;")
+        label.setCursor(Qt.PointingHandCursor)
+        label.mousePressEvent = lambda _e: self._toggle.toggle()        # noqa
+        toggle_row.addWidget(label)
+        toggle_row.addStretch()
+        outer.addLayout(toggle_row)
+
+        # Buttons row.
+        btns = QHBoxLayout()
+        btns.setSpacing(10)
+        btns.addStretch()
+        cancel = GhostButton(t("Cancel"))
+        cancel.clicked.connect(self.reject)
+        self._delete_btn = PrimaryButton(action_label or t("Delete"))
+        # Repaint the primary CTA as a danger button: red gradient instead of purple.
+        self._delete_btn.setStyleSheet(
+            "QPushButton#primaryButton {"
+            " background: qlineargradient(x1:0, y1:0, x2:1, y2:1,"
+            "  stop:0 #ff6e7c, stop:1 #d9384b);"
+            " border-radius: 10px; padding: 0 22px; font-weight: 700;"
+            " color: white; min-height: 40px;"
+            "}"
+            "QPushButton#primaryButton:hover {"
+            " background: qlineargradient(x1:0, y1:0, x2:1, y2:1,"
+            "  stop:0 #ff8090, stop:1 #e64e60);"
+            "}"
+        )
+        self._delete_btn.clicked.connect(self.accept)
+        btns.addWidget(cancel)
+        btns.addWidget(self._delete_btn)
+        outer.addLayout(btns)
+
+    def dont_ask(self) -> bool:
+        return self._toggle.isChecked()
+
+
+def confirm_delete(parent: QWidget, db: Database, kind: str) -> bool:
+    """Show the confirm dialog unless the user has previously suppressed it.
+
+    Returns True if the caller should proceed with deletion.
+
+      kind == "collection" → trash-the-collection prompt
+      kind == "request"    → trash-the-request prompt
+      kind == "history"    → trash-the-history-entry prompt
+    """
+    setting_key = {
+        "collection": CONFIRM_KEY_COLLECTION,
+        "request":    CONFIRM_KEY_REQUEST,
+        "history":    CONFIRM_KEY_HISTORY,
+    }.get(kind)
+    if setting_key and db.get_setting(setting_key, "ask") == "skip":
+        return True
+
+    title, body = {
+        "collection": (t("Delete collection?"),
+                       t("This will permanently delete the collection and every request inside it. This cannot be undone.")),
+        "request":    (t("Delete request?"),
+                       t("This request will be permanently removed.")),
+        "history":    (t("Delete history entry?"),
+                       t("Remove this entry from your history?")),
+    }.get(kind, (t("Delete"), ""))
+
+    dlg = ConfirmDeleteDialog(parent, title, body)
+    if dlg.exec() != QDialog.Accepted:
+        return False
+    if setting_key and dlg.dont_ask():
+        db.set_setting(setting_key, "skip")
+    return True
+
+
+def reset_confirmations(db: Database) -> None:
+    """Clear all 'don't ask me again' suppressions so prompts return."""
+    for k in (CONFIRM_KEY_COLLECTION, CONFIRM_KEY_REQUEST, CONFIRM_KEY_HISTORY):
+        db.set_setting(k, "ask")
 
 
 # ── About ─────────────────────────────────────────────────────────────────

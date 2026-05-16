@@ -26,7 +26,13 @@ from ..http_client import ResponseData
 from ..i18n import t, translator
 from ..logger import get_logger
 from ..workers import submit
-from .dialogs import AboutDialog, EnvironmentDialog, SaveRequestDialog
+from .dialogs import (
+    AboutDialog,
+    EnvironmentDialog,
+    SaveRequestDialog,
+    confirm_delete,
+    reset_confirmations,
+)
 from .log_viewer import LogViewer
 
 log = get_logger(__name__)
@@ -181,6 +187,11 @@ class MainWindow(QMainWindow):
         m_view.addAction(a_clear_hist)
         self._actions["clear_hist"] = a_clear_hist
 
+        a_reset = QAction(t("Reset delete confirmations"), self)
+        a_reset.triggered.connect(self._reset_confirmations)
+        m_view.addAction(a_reset)
+        self._actions["reset_confirms"] = a_reset
+
         # Help
         m_help = mb.addMenu(t("&Help"))
         self._menus["help"] = m_help
@@ -223,6 +234,7 @@ class MainWindow(QMainWindow):
         self._actions["send"].setText(t("Send"))
         self._actions["manage_env"].setText(t("Manage…"))
         self._actions["clear_hist"].setText(t("Clear History"))
+        self._actions["reset_confirms"].setText(t("Reset delete confirmations"))
         self._actions["logs"].setText(self._tr_logs())
         self._actions["about"].setText(t("About"))
         # status + env label
@@ -413,13 +425,16 @@ class MainWindow(QMainWindow):
             self.env_label.setStyleSheet("padding: 2px 10px; color: #6b6f88;")
 
     def clear_history(self) -> None:
-        r = QMessageBox.question(
-            self, t("Clear"), t("Clear all request history?"), QMessageBox.Yes | QMessageBox.No
-        )
-        if r == QMessageBox.Yes:
+        """Wipe history via the modern confirm dialog (with don't-ask-again)."""
+        if confirm_delete(self, self.db, "history"):
             self.db.clear_history()
             self.sidebar._reload_history()
             show_toast(self, t("History cleared"), "info")
+
+    def _reset_confirmations(self) -> None:
+        """Re-enable all 'are you sure?' prompts the user previously dismissed."""
+        reset_confirmations(self.db)
+        show_toast(self, t("Confirmations reset"), "success")
 
     def _export_response(self) -> None:
         body = self.response.body_view.toPlainText()

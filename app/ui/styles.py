@@ -89,6 +89,25 @@ QPushButton#curlButton:pressed {
     background: rgba(124, 92, 255, 0.30);
 }
 
+QPushButton#clearHistoryButton {
+    background: transparent;
+    color: #8b8fab;
+    border: 1px solid #25273f;
+    border-radius: 12px;
+    padding: 3px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    min-height: 20px;
+}
+QPushButton#clearHistoryButton:hover {
+    background: rgba(255, 110, 124, 0.10);
+    border-color: rgba(255, 110, 124, 0.40);
+    color: #ff8090;
+}
+QPushButton#clearHistoryButton:pressed {
+    background: rgba(255, 110, 124, 0.18);
+}
+
 #sidebarTabBar QPushButton {
     background: transparent;
     color: #7e8299;
