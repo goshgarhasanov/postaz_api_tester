@@ -26,6 +26,7 @@ from ..http_client import ResponseData
 from ..i18n import t, translator
 from ..logger import get_logger
 from ..workers import submit
+from .console_panel import ConsolePanel
 from .dialogs import (
     AboutDialog,
     EnvironmentDialog,
@@ -33,6 +34,7 @@ from .dialogs import (
     confirm_delete,
     reset_confirmations,
 )
+from .status_codes import StatusCodesDialog
 from .log_viewer import LogViewer
 
 log = get_logger(__name__)
@@ -78,15 +80,23 @@ class MainWindow(QMainWindow):
         self.editor = RequestEditor()
         self.response = ResponseViewer()
 
-        # Vertical split: request editor (top) over response viewer (bottom)
+        # Console drawer at the very bottom. Starts hidden — user toggles it
+        # via View → Console (Ctrl+`).
+        self.console = ConsolePanel()
+        self.console.setVisible(False)
+
+        # Vertical split: request editor (top) over response viewer + console.
         center = QSplitter(Qt.Vertical)
         center.addWidget(self.editor)
         center.addWidget(self.response)
+        center.addWidget(self.console)
         center.setStretchFactor(0, 3)
         center.setStretchFactor(1, 2)
-        center.setSizes([500, 380])
+        center.setStretchFactor(2, 1)
+        center.setSizes([500, 380, 0])
         center.setHandleWidth(3)
         center.setChildrenCollapsible(False)
+        self._center_split = center
 
         # Horizontal split: sidebar | (editor + response)
         main_split = QSplitter(Qt.Horizontal)
@@ -192,6 +202,15 @@ class MainWindow(QMainWindow):
         m_view.addAction(a_reset)
         self._actions["reset_confirms"] = a_reset
 
+        m_view.addSeparator()
+
+        a_console = QAction(self._tr_console(), self)
+        a_console.setCheckable(True)
+        a_console.setShortcut("Ctrl+`")
+        a_console.triggered.connect(self._toggle_console)
+        m_view.addAction(a_console)
+        self._actions["console"] = a_console
+
         # Help
         m_help = mb.addMenu(t("&Help"))
         self._menus["help"] = m_help
@@ -201,6 +220,12 @@ class MainWindow(QMainWindow):
         a_logs.triggered.connect(self.open_logs)
         m_help.addAction(a_logs)
         self._actions["logs"] = a_logs
+
+        a_status = QAction(self._tr_status_codes(), self)
+        a_status.setShortcut("Ctrl+/")
+        a_status.triggered.connect(self._open_status_codes)
+        m_help.addAction(a_status)
+        self._actions["status_codes"] = a_status
 
         m_help.addSeparator()
 
@@ -212,9 +237,36 @@ class MainWindow(QMainWindow):
     def _tr_logs(self) -> str:
         return {"en": "View Logs", "az": "Logları gör", "tr": "Logları Görüntüle"}[translator.language]
 
+    def _tr_console(self) -> str:
+        return {"en": "Console", "az": "Konsol", "tr": "Konsol"}[translator.language]
+
+    def _tr_status_codes(self) -> str:
+        return {"en": "HTTP Status Codes",
+                "az": "HTTP Status Kodları",
+                "tr": "HTTP Durum Kodları"}[translator.language]
+
     def open_logs(self) -> None:
         log.info("user opened log viewer")
         LogViewer(self).exec()
+
+    def _open_status_codes(self) -> None:
+        log.info("user opened HTTP status codes reference")
+        StatusCodesDialog(self).exec()
+
+    def _toggle_console(self) -> None:
+        """Slide the console drawer in or out at the bottom of the window."""
+        visible = not self.console.isVisible()
+        self.console.setVisible(visible)
+        self._actions["console"].setChecked(visible)
+        if visible:
+            sizes = self._center_split.sizes()
+            total = sum(sizes)
+            # Give the console a healthy quarter of the central area.
+            console_h = max(220, total // 4)
+            top = max(220, (total - console_h) * 3 // 5)
+            mid = max(160, total - console_h - top)
+            self._center_split.setSizes([top, mid, console_h])
+        log.info("console %s", "shown" if visible else "hidden")
 
     def _tr_import(self) -> str:
         return {"en": "Import cURL…", "az": "cURL idxal et…", "tr": "cURL İçe Aktar…"}[translator.language]
@@ -235,6 +287,8 @@ class MainWindow(QMainWindow):
         self._actions["manage_env"].setText(t("Manage…"))
         self._actions["clear_hist"].setText(t("Clear History"))
         self._actions["reset_confirms"].setText(t("Reset delete confirmations"))
+        self._actions["console"].setText(self._tr_console())
+        self._actions["status_codes"].setText(self._tr_status_codes())
         self._actions["logs"].setText(self._tr_logs())
         self._actions["about"].setText(t("About"))
         # status + env label
@@ -340,6 +394,8 @@ class MainWindow(QMainWindow):
         self.editor.set_sending(False)
         self.response.show_response(resp)
         rec = self.current_request
+        # Push to the Postman-style console drawer (live tail of recent calls).
+        self.console.push(rec.method, rec.url, resp)
         snapshot = {
             "request": {
                 "method": rec.method,

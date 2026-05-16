@@ -145,6 +145,52 @@ QPushButton#confirmDanger:pressed {
         stop:0 #e64e60, stop:1 #c43040);
 }
 
+/* ─── console drawer ──────────────────────────────────────────── */
+#consolePanel {
+    background: #0a0b13;
+    border-top: 1px solid #15161f;
+}
+#consoleHeader {
+    background: #11121c;
+    border-bottom: 1px solid #15161f;
+}
+#consoleTitle {
+    color: #c2b8ff;
+    font-family: "JetBrains Mono", "Consolas";
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+}
+#consoleCounter {
+    color: #7e8299;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+    padding: 1px 8px;
+    font-size: 11px;
+    font-weight: 700;
+}
+QTableWidget#consoleTable {
+    background: #0a0b13;
+    border: none;
+    gridline-color: transparent;
+    font-size: 12px;
+}
+QTableWidget#consoleTable::item {
+    background: transparent;
+    border: none;
+    padding: 4px 10px;
+}
+QTableWidget#consoleTable::item:hover {
+    background: #15161f;
+}
+QTableWidget#consoleTable::item:selected {
+    background: #1c1d2e;
+    color: #ffffff;
+}
+
+/* ─── status-codes dialog (search rows) ───────────────────────── */
+QScrollArea#statusScroll { background: transparent; border: none; }
+
 #sidebarTabBar QPushButton {
     background: transparent;
     color: #7e8299;
