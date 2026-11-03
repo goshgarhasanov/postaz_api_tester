@@ -556,7 +556,7 @@ class AboutDialog(QDialog):
         header = QFrame()
         header.setStyleSheet(
             "QFrame { background: qlineargradient(x1:0, y1:0, x2:1, y2:1,"
-            "stop:0 #7c5cff, stop:1 #5a3fd9); }"
+            "stop:0 #FF8557, stop:1 #E55A2B); }"
         )
         header.setFixedHeight(150)
         hl = QVBoxLayout(header)
@@ -598,7 +598,7 @@ class AboutDialog(QDialog):
         bl.addWidget(desc)
 
         feat_title = QLabel(f"✦ {_FEATURE_TITLE.get(lang, _FEATURE_TITLE['en'])}")
-        feat_title.setStyleSheet("color:#a89bff; font-weight:600; font-size:12px; letter-spacing:1px;")
+        feat_title.setStyleSheet("color:#FF8557; font-weight:600; font-size:12px; letter-spacing:1px;")
         bl.addWidget(feat_title)
 
         feat_html = "<ul style='color:#c9cce0; font-size:12px; line-height:1.7; margin-left:-18px;'>"
@@ -615,7 +615,7 @@ class AboutDialog(QDialog):
 
         # developer line
         dev = QLabel(
-            f"<span style='color:#8b8fab;'>{_DEVELOPED_BY.get(lang, _DEVELOPED_BY['en'])}</span> "
+            f"<span style='color:#9A9CA6;'>{_DEVELOPED_BY.get(lang, _DEVELOPED_BY['en'])}</span> "
             f"<b style='color:#e6e8f5;'>{DEV_NAME}</b>"
         )
         dev.setTextFormat(Qt.RichText)
@@ -623,7 +623,7 @@ class AboutDialog(QDialog):
         bl.addWidget(dev)
 
         version = QLabel(
-            f"<span style='color:#6b6f88; font-size:11px;'>"
+            f"<span style='color:#63656F; font-size:11px;'>"
             f"{_VERSION.get(lang, _VERSION['en'])} {APP_VERSION} · {_BUILT_WITH.get(lang, _BUILT_WITH['en'])}"
             f"</span>"
         )

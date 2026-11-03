@@ -69,6 +69,16 @@ _DICT: dict[str, dict[str, str]] = {
     "Params":                          {"az": "Parametrlər", "tr": "Parametreler"},
     "Headers":                         {"az": "Başlıqlar", "tr": "Başlıklar"},
     "Body":                            {"az": "Gövdə", "tr": "Gövde"},
+    "Preview":                         {"az": "Önizləmə", "tr": "Önizleme"},
+    "Offline":                         {"az": "Oflayn", "tr": "Çevrimdışı"},
+    "Internet connection & latency":   {
+        "az": "İnternet bağlantısı və gecikmə",
+        "tr": "İnternet bağlantısı ve gecikme",
+    },
+    "Preview is available for HTML responses.": {
+        "az": "Önizləmə yalnız HTML cavablar üçün mövcuddur.",
+        "tr": "Önizleme yalnızca HTML yanıtlar için kullanılabilir.",
+    },
     "Auth":                            {"az": "Doğrulama", "tr": "Kimlik Doğrulama"},
     "Body type:":                      {"az": "Gövdə tipi:", "tr": "Gövde tipi:"},
     "Auth type:":                      {"az": "Doğrulama tipi:", "tr": "Kimlik doğrulama tipi:"},

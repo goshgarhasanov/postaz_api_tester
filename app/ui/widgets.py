@@ -374,3 +374,55 @@ class LoaderOverlay(QWidget):
         super().resizeEvent(ev)
         if self.parentWidget():
             self.resize(self.parentWidget().size())
+
+
+# ── HTML preview ───────────────────────────────────────────────────────────
+class HtmlPreview(QWidget):
+    """Rendered preview of an HTML response body.
+
+    Renders with QTextBrowser — dependency-free and crash-safe (unlike a full
+    web engine, which spins up a GPU process that can fail under headless /
+    Wayland / sandboxed setups and take the whole app down). It paints a
+    white, browser-like page so HTML that assumes a light background reads
+    correctly, and shows a muted placeholder when the response isn't HTML."""
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        from PySide6.QtWidgets import QStackedWidget, QTextBrowser
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        self._stack = QStackedWidget()
+        lay.addWidget(self._stack)
+
+        self._placeholder = QLabel("Preview is available for HTML responses.")
+        self._placeholder.setAlignment(Qt.AlignCenter)
+        self._placeholder.setWordWrap(True)
+        self._placeholder.setStyleSheet("color:#63656F; font-size:13px;")
+        self._stack.addWidget(self._placeholder)          # index 0
+
+        self._browser = QTextBrowser()
+        self._browser.setOpenExternalLinks(True)
+        self._browser.setStyleSheet(
+            "QTextBrowser { background:#FFFFFF; color:#111111;"
+            " border:1px solid #26272E; border-radius:9px; padding:6px; }"
+        )
+        self._stack.addWidget(self._browser)              # index 1
+        self._stack.setCurrentIndex(0)
+
+    def show_html(self, html: str, base_url: str = "") -> None:
+        from PySide6.QtCore import QUrl
+        if base_url:
+            self._browser.setSearchPaths([])
+            self._browser.document().setBaseUrl(QUrl(base_url))
+        self._browser.setHtml(html or "<i>(empty document)</i>")
+        self._stack.setCurrentIndex(1)
+
+    def show_placeholder(self, text: str | None = None) -> None:
+        if text:
+            self._placeholder.setText(text)
+        self._stack.setCurrentIndex(0)
+
+    def clear(self) -> None:
+        self._browser.clear()
+        self.show_placeholder("Preview is available for HTML responses.")

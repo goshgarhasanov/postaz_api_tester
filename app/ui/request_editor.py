@@ -60,6 +60,9 @@ class RequestEditor(QWidget):
         self.method.setObjectName("methodCombo")
         self.method.addItems(METHODS)
         self.method.setMinimumWidth(120)
+        # pointer cursor on the combo and on each item in its dropdown
+        self.method.setCursor(Qt.PointingHandCursor)
+        self.method.view().setCursor(Qt.PointingHandCursor)
 
         self.url = QLineEdit()
         self.url.setObjectName("urlBar")
@@ -94,7 +97,7 @@ class RequestEditor(QWidget):
         self.name_edit.setStyleSheet(
             "QLineEdit { background: transparent; border: none; padding: 2px 0; "
             "font-size: 14px; font-weight: 600; color: #FFFFFF; }"
-            "QLineEdit:focus { border-bottom: 1px solid #7c5cff; }"
+            "QLineEdit:focus { border-bottom: 1px solid #FF6C37; }"
         )
         nl.addWidget(self.name_edit)
         outer.addWidget(name_row)
@@ -118,6 +121,8 @@ class RequestEditor(QWidget):
         self.body_type_label = QLabel(t("Body type:"))
         self.body_type = QComboBox()
         self.body_type.addItems(["none", "json", "raw", "urlencoded"])
+        self.body_type.setCursor(Qt.PointingHandCursor)
+        self.body_type.view().setCursor(Qt.PointingHandCursor)
         body_top.addWidget(self.body_type_label)
         body_top.addWidget(self.body_type)
         body_top.addStretch()
@@ -141,6 +146,8 @@ class RequestEditor(QWidget):
         self.auth_type_label = QLabel(t("Auth type:"))
         self.auth_type = QComboBox()
         self.auth_type.addItems(["none", "bearer", "basic", "apikey"])
+        self.auth_type.setCursor(Qt.PointingHandCursor)
+        self.auth_type.view().setCursor(Qt.PointingHandCursor)
         auth_top.addWidget(self.auth_type_label)
         auth_top.addWidget(self.auth_type)
         auth_top.addStretch()
@@ -149,7 +156,7 @@ class RequestEditor(QWidget):
         self.auth_stack = QStackedWidget()
         # none
         self.auth_none_label = QLabel(t("This request will not include any authorization."))
-        self.auth_none_label.setStyleSheet("color: #8b8fab; font-size: 12px;")
+        self.auth_none_label.setStyleSheet("color: #9A9CA6; font-size: 12px;")
         none_w = QWidget()
         none_l = QVBoxLayout(none_w)
         none_l.addWidget(self.auth_none_label)

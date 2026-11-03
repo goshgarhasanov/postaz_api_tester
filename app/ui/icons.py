@@ -217,22 +217,73 @@ def icon_power(color: str = "#c9cce0") -> QIcon:       return _icon(_power, colo
 def icon_copy(color: str = "#c9cce0") -> QIcon:        return _icon(_copy, color=color)
 
 
+# ── Azerbaijan flag (reusable painter) ────────────────────────────────
+def _draw_star(p: QPainter, center: QPointF, radius: float, color: QColor, points: int = 8) -> None:
+    """An 8-pointed star (octagram) — the emblem on Azerbaijan's flag."""
+    from math import cos, pi, sin
+    poly = QPolygonF()
+    inner = radius * 0.46
+    for i in range(points * 2):
+        ang = -pi / 2 + i * pi / points
+        r = radius if i % 2 == 0 else inner
+        poly.append(QPointF(center.x() + r * cos(ang), center.y() + r * sin(ang)))
+    p.setPen(Qt.NoPen)
+    p.setBrush(color)
+    p.drawPolygon(poly)
+
+
+def paint_az_flag(p: QPainter, rect: QRectF, radius: float = 0.0, emblem: bool = True) -> None:
+    """Paint the flag of Azerbaijan inside `rect`.
+
+    Three equal horizontal bands — cyan-blue, red, green. When `emblem` is
+    True a white crescent and eight-pointed star are centred on the red
+    band; set it False for the bands alone. `radius` rounds the corners
+    (0 = sharp rectangle)."""
+    p.save()
+    if radius > 0:
+        clip = QPainterPath()
+        clip.addRoundedRect(rect, radius, radius)
+        p.setClipPath(clip)
+    x, y, w, h = rect.x(), rect.y(), rect.width(), rect.height()
+    band = h / 3.0
+    p.setPen(Qt.NoPen)
+    p.setBrush(QColor("#00B5E2"))          # top — cyan blue
+    p.drawRect(QRectF(x, y, w, band + 1))
+    p.setBrush(QColor("#EF3340"))          # middle — red
+    p.drawRect(QRectF(x, y + band, w, band + 1))
+    p.setBrush(QColor("#4FA72E"))          # bottom — green
+    p.drawRect(QRectF(x, y + 2 * band, w, band + 1))
+
+    if emblem:
+        cy = y + h / 2.0
+        cx = x + w * 0.44
+        r_out = band * 0.48
+        # crescent: white disc, then carve it with a red disc shifted right
+        p.setBrush(QColor("#FFFFFF"))
+        p.drawEllipse(QPointF(cx, cy), r_out, r_out)
+        p.setBrush(QColor("#EF3340"))
+        p.drawEllipse(QPointF(cx + r_out * 0.40, cy), r_out * 0.84, r_out * 0.84)
+        # eight-pointed star to the right of the crescent opening
+        _draw_star(p, QPointF(x + w * 0.62, cy), r_out * 0.60, QColor("#FFFFFF"))
+    p.restore()
+
+
 # ── App / window icon (the Postaz mark) ───────────────────────────────
 def app_icon(size: int = 256) -> QIcon:
-    """The Postaz logomark — orange gradient rounded square with a stylised
-    paper plane. Used as the window icon and the corner mark of the brand
-    header in the sidebar."""
+    """The Postaz logomark — the same rounded-square + paper-plane mark,
+    with the square painted in the colours of the flag of Azerbaijan
+    (cyan-blue / red / green bands). Used as the window icon and the corner
+    mark of the brand header in the sidebar."""
     pm = QPixmap(size, size)
     pm.fill(Qt.transparent)
     p = QPainter(pm)
     p.setRenderHint(QPainter.Antialiasing, True)
-    # background gradient — Postman orange
-    grad = QLinearGradient(0, 0, size, size)
-    grad.setColorAt(0.0, QColor("#FF8557"))
-    grad.setColorAt(1.0, QColor("#E55A2B"))
-    p.setBrush(QBrush(grad))
-    p.setPen(Qt.NoPen)
+    # background — Azerbaijan flag bands filling the rounded square
     r = size * 0.22
+    paint_az_flag(p, QRectF(0, 0, size, size), radius=r, emblem=False)
+    # a soft dark scrim so the white plane stays legible over all 3 bands
+    p.setPen(Qt.NoPen)
+    p.setBrush(QColor(0, 0, 0, 38))
     p.drawRoundedRect(QRectF(0, 0, size, size), r, r)
     # paper plane (white)
     pen = QPen(QColor("#FFFFFF"))
@@ -248,9 +299,9 @@ def app_icon(size: int = 256) -> QIcon:
     path.closeSubpath()
     p.setBrush(QColor("#FFFFFF"))
     p.drawPath(path)
-    # crease — slightly darker orange so the fold reads
+    # crease — translucent dark so the fold reads on any band
     p.setBrush(Qt.NoBrush)
-    pen2 = QPen(QColor("#C44A1F"))
+    pen2 = QPen(QColor(0, 0, 0, 90))
     pen2.setWidthF(size * 0.03)
     p.setPen(pen2)
     p.drawLine(QPointF(size * 0.48, size * 0.54), QPointF(size * 0.78, size * 0.26))

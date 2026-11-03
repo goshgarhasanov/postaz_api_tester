@@ -13,9 +13,11 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QWidget
 
+from .icons import paint_az_flag
+
 
 class Logo(QWidget):
-    """Compact horizontal lockup: [icon] POSTAZ"""
+    """Compact horizontal lockup: [icon] POSTAZ [az-flag]"""
 
     def __init__(self, parent: QWidget | None = None, height: int = 30):
         super().__init__(parent)
@@ -32,16 +34,16 @@ class Logo(QWidget):
         p.setRenderHint(QPainter.Antialiasing, True)
 
         s = self._height
-        # ── mark (rounded square + paper plane) ───────────────
+        # ── mark: rounded square painted in Azerbaijan flag colours ──
         rect = QRectF(2, 2, s, s)
-        grad = QLinearGradient(rect.topLeft(), rect.bottomRight())
-        grad.setColorAt(0.0, QColor("#FF8557"))
-        grad.setColorAt(1.0, QColor("#E55A2B"))
-        p.setBrush(QBrush(grad))
+        rad = s * 0.24
+        paint_az_flag(p, rect, radius=rad, emblem=False)
+        # soft dark scrim keeps the white paper plane legible on all bands
         p.setPen(Qt.NoPen)
-        p.drawRoundedRect(rect, s * 0.24, s * 0.24)
+        p.setBrush(QColor(0, 0, 0, 38))
+        p.drawRoundedRect(rect, rad, rad)
 
-        # paper plane
+        # paper plane (white, on top)
         path = QPainterPath()
         cx, cy = rect.x(), rect.y()
         path.moveTo(cx + s * 0.24, cy + s * 0.52)

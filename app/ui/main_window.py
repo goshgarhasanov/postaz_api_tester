@@ -8,11 +8,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt
 from PySide6.QtGui import QAction, QActionGroup, QKeySequence
 from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
+    QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -66,6 +67,8 @@ class MainWindow(QMainWindow):
         self.db = db
         self.current_request: RequestRecord = RequestRecord()
         self._sending = False
+        self._intro_done = False
+        self._intro_anim: QPropertyAnimation | None = None
 
         self.setWindowIcon(app_icon(64))
         self.setWindowTitle("Postaz")
@@ -135,6 +138,34 @@ class MainWindow(QMainWindow):
         self._update_env_label()
         self.statusBar().showMessage(t("Ready"), 2500)
 
+    # ── intro animation ──────────────────────────────────────────────
+    def showEvent(self, ev) -> None:
+        """Fade the central content in the first time the window appears.
+
+        We fade a QGraphicsOpacityEffect on the central widget rather than
+        the window opacity — `windowOpacity` is a no-op on Wayland and just
+        spams warnings. The effect is detached the moment the ramp finishes
+        so it can never cause the repaint flicker during later splitter
+        drags that a persistent effect would."""
+        super().showEvent(ev)
+        if self._intro_done:
+            return
+        self._intro_done = True
+        target = self.centralWidget()
+        if target is None:
+            return
+        effect = QGraphicsOpacityEffect(target)
+        target.setGraphicsEffect(effect)
+        effect.setOpacity(0.0)
+        anim = QPropertyAnimation(effect, b"opacity", self)
+        anim.setDuration(300)
+        anim.setStartValue(0.0)
+        anim.setEndValue(1.0)
+        anim.setEasingCurve(QEasingCurve.OutCubic)
+        anim.finished.connect(lambda: target.setGraphicsEffect(None))
+        anim.start(QPropertyAnimation.DeleteWhenStopped)
+        self._intro_anim = anim
+
     # ── menu / shortcuts ─────────────────────────────────────────────
     def _build_menu(self) -> None:
         mb = self.menuBar()
@@ -178,7 +209,7 @@ class MainWindow(QMainWindow):
         # Request
         m_req = mb.addMenu(t("&Request"))
         self._menus["request"] = m_req
-        a_send = QAction(icon_send("#7c5cff"), t("Send"), self)
+        a_send = QAction(icon_send("#FF8557"), t("Send"), self)
         a_send.setShortcut("Ctrl+Return")
         a_send.triggered.connect(self.on_send)
         m_req.addAction(a_send)
@@ -309,17 +340,22 @@ class MainWindow(QMainWindow):
         Sits where the window controls live on most platforms — natural home
         for a global app preference like language."""
         from .icons import icon_globe
+        from .net_status import NetStatus
 
         wrap = QWidget()
         wrap.setObjectName("langCornerWrap")
         layout = QHBoxLayout(wrap)
         layout.setContentsMargins(0, 0, 12, 0)
-        layout.setSpacing(0)
+        layout.setSpacing(12)
+
+        # live internet + latency indicator (colour-coded by speed)
+        self.net_status = NetStatus(wrap)
+        layout.addWidget(self.net_status)
 
         self.lang_btn = QToolButton()
         self.lang_btn.setObjectName("langButton")
         self.lang_btn.setCursor(Qt.PointingHandCursor)
-        self.lang_btn.setIcon(icon_globe("#a89bff"))
+        self.lang_btn.setIcon(icon_globe("#FF8557"))
         self.lang_btn.setPopupMode(QToolButton.InstantPopup)
         self.lang_btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         self.lang_btn.setText(translator.language.upper())
@@ -543,11 +579,11 @@ class MainWindow(QMainWindow):
         if env:
             self.env_label.setText(f"⌁ {env['name']}")
             self.env_label.setStyleSheet(
-                "padding: 2px 10px; color: #7c5cff; font-weight: 600;"
+                "padding: 2px 10px; color: #FF8557; font-weight: 600;"
             )
         else:
             self.env_label.setText(t("No environment"))
-            self.env_label.setStyleSheet("padding: 2px 10px; color: #6b6f88;")
+            self.env_label.setStyleSheet("padding: 2px 10px; color: #63656F;")
 
     def clear_history(self) -> None:
         """Wipe history via the modern confirm dialog (with don't-ask-again)."""

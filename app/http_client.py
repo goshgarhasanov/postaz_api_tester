@@ -42,6 +42,15 @@ class ResponseData:
     def is_json(self) -> bool:
         return "application/json" in self.content_type.lower()
 
+    @property
+    def is_html(self) -> bool:
+        ct = self.content_type.lower()
+        if "text/html" in ct or "application/xhtml" in ct:
+            return True
+        # fall back to sniffing the body when the server sends no content-type
+        head = self.body_text.lstrip()[:200].lower()
+        return head.startswith("<!doctype html") or head.startswith("<html")
+
 
 def _build_kwargs(rec: RequestRecord, variables: dict[str, str]) -> tuple[str, dict[str, Any]]:
     """Resolve `{{vars}}` and translate the saved record into `requests.request` kwargs.

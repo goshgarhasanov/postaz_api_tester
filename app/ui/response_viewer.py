@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
 from ..http_client import ResponseData
 from ..i18n import t, translator
 from .animations import fade_in
-from .widgets import LoaderOverlay, StatusBadge
+from .widgets import HtmlPreview, LoaderOverlay, StatusBadge
 
 
 class JsonHighlighter(QSyntaxHighlighter):
@@ -79,12 +79,12 @@ class ResponseViewer(QWidget):
         self.time_label = QLabel("—")
         self.size_label = QLabel("—")
         for lbl in (self.time_label, self.size_label):
-            lbl.setStyleSheet("color: #8b8fab; font-size: 12px;")
+            lbl.setStyleSheet("color: #9A9CA6; font-size: 12px;")
 
         self.icon_time = QLabel("⏱")
         self.icon_size = QLabel("⇣")
         for ic in (self.icon_time, self.icon_size):
-            ic.setStyleSheet("color: #6b6f88; font-size: 13px;")
+            ic.setStyleSheet("color: #63656F; font-size: 13px;")
 
         ml.addWidget(self.status)
         ml.addSpacing(8)
@@ -131,6 +131,11 @@ class ResponseViewer(QWidget):
         self.raw_view.setFont(QFont("Consolas", 11))
         self.tabs.addTab(_padded(self.raw_view), t("Raw"))
 
+        # Rendered HTML preview (browser-like). Shows a placeholder until an
+        # HTML response arrives, then paints the page.
+        self.preview = HtmlPreview()
+        self._preview_index = self.tabs.addTab(_padded(self.preview), t("Preview"))
+
         self.loader = LoaderOverlay(self)
         translator.language_changed.connect(self._retranslate)
         # Tab-switch fade removed — was a QGraphicsOpacityEffect that caused
@@ -146,6 +151,7 @@ class ResponseViewer(QWidget):
         self.tabs.setTabText(0, t("Body"))
         self.tabs.setTabText(1, t("Headers"))
         self.tabs.setTabText(2, t("Raw"))
+        self.tabs.setTabText(self._preview_index, t("Preview"))
         self.headers_table.setHorizontalHeaderLabels([t("Header"), t("Value")])
         self.body_view.setPlaceholderText(t("Response body will appear here."))
 
@@ -162,6 +168,7 @@ class ResponseViewer(QWidget):
         self.body_view.setPlainText("")
         self.raw_view.setPlainText("")
         self.headers_table.setRowCount(0)
+        self.preview.clear()
 
     def show_response(self, resp: ResponseData) -> None:
         """Paint a finished response (success OR network/parse failure).
@@ -176,6 +183,8 @@ class ResponseViewer(QWidget):
             self.time_label.setText(f"{resp.duration_ms} ms")
             self.size_label.setText("—")
             self.headers_table.setRowCount(0)
+            self.preview.show_placeholder(t("Preview is available for HTML responses."))
+            fade_in(self.tabs, 200)
             return
 
         self.status.set_status(resp.status_code, resp.reason)
@@ -197,6 +206,16 @@ class ResponseViewer(QWidget):
             self.headers_table.insertRow(r)
             self.headers_table.setItem(r, 0, QTableWidgetItem(k))
             self.headers_table.setItem(r, 1, QTableWidgetItem(v))
+
+        # HTML preview — render the page and auto-focus the tab for HTML
+        if resp.is_html:
+            self.preview.show_html(resp.body_text, base_url=resp.final_url)
+            self.tabs.setCurrentIndex(self._preview_index)
+        else:
+            self.preview.show_placeholder(t("Preview is available for HTML responses."))
+
+        # gentle fade-in so a fresh response reads as "new"
+        fade_in(self.tabs, 220)
 
 
 def _humanize_size(n: int) -> str:
