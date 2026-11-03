@@ -58,6 +58,34 @@ Get-FileHash .\Postaz-Setup-2.0.1.exe -Algorithm SHA256
 
 ---
 
+<div align="center">
+
+## 🌐 Web Edition — React + Node
+
+A modern, animated web version of Postaz also lives in this repo — front end in **React · Vite · Tailwind · Framer Motion**, back end in **Node · Express · better-sqlite3**. The server also acts as a request proxy, so browser CORS never gets in the way.
+
+![Postaz Web Edition](docs/postaz-web.png)
+
+</div>
+
+### ▶️ Run the web edition
+
+```bash
+# back end (Express + SQLite) — http://localhost:5177
+cd server && npm install && npm start
+
+# front end (Vite dev server) — http://localhost:5173
+cd client && npm install && npm run dev
+```
+
+Or launch both at once from the repo root:
+
+```bash
+./start.sh
+```
+
+---
+
 ## 🇬🇧 English
 
 ### Why Postaz?

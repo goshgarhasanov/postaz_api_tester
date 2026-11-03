@@ -48,3 +48,9 @@ build/pyinstaller-work/
 build/postaz.ico
 installer/dist/
 *.spec.bak
+# MERN stack
+server/node_modules/
+server/data/
+client/node_modules/
+client/dist/
+*.log
